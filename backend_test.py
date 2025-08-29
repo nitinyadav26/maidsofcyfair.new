@@ -194,25 +194,6 @@ class MaidsBookingAPITester:
         
         return success, response
 
-    def test_get_services(self):
-        """Test GET /api/services"""
-        success, response = self.run_test(
-            "Get All Services",
-            "GET",
-            "services",
-            200
-        )
-        if success and isinstance(response, list) and len(response) >= 5:
-            print(f"   ✅ Found {len(response)} services as expected")
-            # Verify service types
-            service_types = [service.get('type') for service in response]
-            expected_types = ['standard', 'deep', 'move_in', 'move_out', 'post_construction']
-            if all(stype in service_types for stype in expected_types):
-                print(f"   ✅ All expected service types found")
-            else:
-                print(f"   ⚠️  Missing service types. Found: {service_types}")
-        return success, response
-
     def test_get_available_dates(self):
         """Test GET /api/available-dates"""
         success, response = self.run_test(
@@ -246,37 +227,26 @@ class MaidsBookingAPITester:
             print(f"   Using time slot: {self.time_slot}")
         return success, response
 
-    def test_create_customer(self):
-        """Test POST /api/customers"""
-        customer_data = {
-            "email": f"test_{datetime.now().strftime('%H%M%S')}@example.com",
-            "first_name": "John",
-            "last_name": "Doe",
-            "phone": "555-123-4567",
-            "address": "123 Test St",
-            "city": "Houston",
-            "state": "TX",
-            "zip_code": "77001",
-            "is_guest": False
-        }
-        
-        success, response = self.run_test(
-            "Create Customer",
-            "POST",
-            "customers",
-            200,
-            data=customer_data
-        )
-        if success and 'id' in response:
-            self.customer_id = response['id']
-            print(f"   ✅ Customer created with ID: {self.customer_id}")
-        return success, response
-
-    def test_create_booking(self):
-        """Test POST /api/bookings"""
+    def test_create_booking_with_a_la_carte(self):
+        """Test POST /api/bookings with a la carte services"""
         if not self.available_date or not self.time_slot:
             print("❌ Missing date or time slot, skipping booking creation")
             return False, {}
+        
+        if not self.a_la_carte_services:
+            print("❌ No a la carte services available, skipping booking creation")
+            return False, {}
+            
+        # Select first few a la carte services for testing
+        selected_services = self.a_la_carte_services[:3]
+        a_la_carte_items = []
+        
+        for service in selected_services:
+            a_la_carte_items.append({
+                "service_id": service['id'],
+                "quantity": 1,
+                "special_instructions": f"Test {service['name']}"
+            })
             
         booking_data = {
             "customer": {
@@ -290,31 +260,56 @@ class MaidsBookingAPITester:
                 "zip_code": "77002",
                 "is_guest": False
             },
+            "house_size": "2000-2500",
+            "frequency": "monthly",
             "services": [
                 {
-                    "service_id": "test-service-id",  # This might fail, but let's see
+                    "service_id": "standard-cleaning-id",
                     "quantity": 1,
-                    "special_instructions": "Test booking"
+                    "special_instructions": "Standard cleaning service"
                 }
             ],
+            "a_la_carte_services": a_la_carte_items,
             "booking_date": self.available_date,
             "time_slot": self.time_slot,
-            "special_instructions": "This is a test booking"
+            "special_instructions": "Test booking with a la carte services"
         }
         
         success, response = self.run_test(
-            "Create Booking",
+            "Create Booking with A La Carte Services",
             "POST",
             "bookings",
             200,
-            data=booking_data
+            data=booking_data,
+            auth_required=True
         )
+        
         if success and 'id' in response:
             self.booking_id = response['id']
             print(f"   ✅ Booking created with ID: {self.booking_id}")
+            print(f"   Base Price: ${response.get('base_price', 0)}")
+            print(f"   A La Carte Total: ${response.get('a_la_carte_total', 0)}")
+            print(f"   Total Amount: ${response.get('total_amount', 0)}")
         return success, response
 
-    def test_get_booking(self):
+    def test_get_bookings(self):
+        """Test GET /api/bookings (user's bookings)"""
+        success, response = self.run_test(
+            "Get User Bookings",
+            "GET",
+            "bookings",
+            200,
+            auth_required=True
+        )
+        
+        if success and isinstance(response, list):
+            print(f"   ✅ Found {len(response)} bookings for user")
+            for booking in response:
+                print(f"   - Booking {booking['id']}: ${booking['total_amount']} on {booking['booking_date']}")
+        
+        return success, response
+
+    def test_get_booking_by_id(self):
         """Test GET /api/bookings/{booking_id}"""
         if not self.booking_id:
             print("❌ No booking ID available, skipping get booking test")
@@ -339,7 +334,7 @@ class MaidsBookingAPITester:
             "expiry_month": "12",
             "expiry_year": "2025",
             "cvv": "123",
-            "amount": 120.00
+            "amount": 200.00
         }
         
         success, response = self.run_test(
@@ -356,16 +351,6 @@ class MaidsBookingAPITester:
             print(f"   Booking Status: {response.get('booking_status')}")
         return success, response
 
-    def test_get_all_bookings(self):
-        """Test GET /api/bookings"""
-        success, response = self.run_test(
-            "Get All Bookings",
-            "GET",
-            "bookings",
-            200
-        )
-        return success, response
-
 def main():
     print("🧪 Starting Maids of Cyfair Booking System API Tests")
     print("=" * 60)
@@ -373,20 +358,30 @@ def main():
     tester = MaidsBookingAPITester()
     
     # Test sequence
-    print("\n📋 Testing Services Endpoints...")
-    tester.test_get_services()
+    print("\n🔐 Testing Authentication Endpoints...")
+    login_success, _ = tester.test_login()
+    if not login_success:
+        print("❌ Login failed, cannot proceed with authenticated tests")
+        return 1
+    
+    tester.test_auth_me()
+    tester.test_register_new_user()
+    
+    print("\n💰 Testing Pricing Endpoints...")
+    tester.test_pricing_endpoints()
+    
+    print("\n🛍️ Testing Services Endpoints...")
+    tester.test_get_standard_services()
+    tester.test_get_a_la_carte_services()
     
     print("\n📅 Testing Date/Time Endpoints...")
     tester.test_get_available_dates()
     tester.test_get_time_slots()
     
-    print("\n👤 Testing Customer Endpoints...")
-    tester.test_create_customer()
-    
     print("\n📝 Testing Booking Endpoints...")
-    tester.test_create_booking()
-    tester.test_get_booking()
-    tester.test_get_all_bookings()
+    tester.test_create_booking_with_a_la_carte()
+    tester.test_get_bookings()
+    tester.test_get_booking_by_id()
     
     print("\n💳 Testing Payment Processing...")
     tester.test_process_payment()
