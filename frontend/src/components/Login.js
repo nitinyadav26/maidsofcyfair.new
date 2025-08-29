@@ -111,7 +111,7 @@ const Login = () => {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="text-sm font-medium text-blue-800 mb-2">Demo Credentials</h4>
                 <div className="text-sm text-blue-700">
-                  <p><strong>Email:</strong> test</p>
+                  <p><strong>Email:</strong> test@maids.com</p>
                   <p><strong>Password:</strong> test@maids@1234</p>
                 </div>
                 <Button
@@ -119,7 +119,7 @@ const Login = () => {
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={() => setFormData({ email: 'test', password: 'test@maids@1234' })}
+                  onClick={() => setFormData({ email: 'test@maids.com', password: 'test@maids@1234' })}
                 >
                   Use Demo Credentials
                 </Button>
