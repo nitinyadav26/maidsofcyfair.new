@@ -416,6 +416,18 @@ async def startup_event():
         )
         await db.users.insert_one(prepare_for_mongo(test_user.dict()))
     
+    # Create admin user if not exists
+    admin_user = await db.users.find_one({"email": "admin@maids.com"})
+    if not admin_user:
+        admin_user = User(
+            email="admin@maids.com",
+            first_name="Admin",
+            last_name="User",
+            role=UserRole.ADMIN,
+            password_hash=hash_password("admin@maids@1234")
+        )
+        await db.users.insert_one(prepare_for_mongo(admin_user.dict()))
+    
     # Check if services exist, if not create them
     services_count = await db.services.count_documents({})
     if services_count == 0:
