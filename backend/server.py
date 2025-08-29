@@ -314,7 +314,7 @@ def get_base_price(house_size: HouseSize, frequency: ServiceFrequency) -> float:
     return pricing_matrix.get(house_size, {}).get(frequency, 125.0)
 
 # Initialize mock data
-@api_router.on_event("startup")
+@app.on_event("startup")
 async def startup_event():
     # Create test user if not exists
     test_user = await db.users.find_one({"email": "test@maids.com"})
