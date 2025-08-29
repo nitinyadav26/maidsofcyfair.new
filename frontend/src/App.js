@@ -15,7 +15,7 @@ import { Toaster } from "./components/ui/sonner";
 // Auth Context
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -26,7 +26,15 @@ const ProtectedRoute = ({ children }) => {
     );
   }
   
-  return user ? children : <Navigate to="/login" />;
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+  
+  if (adminOnly && user.role !== 'admin') {
+    return <Navigate to="/admin/login" />;
+  }
+  
+  return children;
 };
 
 const PublicRoute = ({ children }) => {
