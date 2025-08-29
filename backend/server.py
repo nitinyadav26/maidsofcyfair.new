@@ -317,10 +317,10 @@ def get_base_price(house_size: HouseSize, frequency: ServiceFrequency) -> float:
 @api_router.on_event("startup")
 async def startup_event():
     # Create test user if not exists
-    test_user = await db.users.find_one({"email": "test"})
+    test_user = await db.users.find_one({"email": "test@maids.com"})
     if not test_user:
         test_user = User(
-            email="test",
+            email="test@maids.com",
             first_name="Test",
             last_name="User",
             password_hash=hash_password("test@maids@1234")
