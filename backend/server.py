@@ -717,6 +717,292 @@ async def process_payment(booking_id: str, payment_data: Dict[str, Any]):
         "transaction_id": str(uuid.uuid4()) if payment_success else None
     }
 
+# Admin Endpoints
+@api_router.get("/admin/stats", response_model=AdminStats)
+async def get_admin_stats(admin_user: User = Depends(get_admin_user)):
+    """Get admin dashboard statistics"""
+    total_bookings = await db.bookings.count_documents({})
+    pending_bookings = await db.bookings.count_documents({"status": BookingStatus.PENDING})
+    completed_bookings = await db.bookings.count_documents({"status": BookingStatus.COMPLETED})
+    total_customers = await db.customers.count_documents({})
+    total_cleaners = await db.cleaners.count_documents({})
+    open_tickets = await db.tickets.count_documents({"status": TicketStatus.OPEN})
+    
+    # Calculate total revenue from paid bookings
+    revenue_pipeline = [
+        {"$match": {"payment_status": PaymentStatus.PAID}},
+        {"$group": {"_id": None, "total": {"$sum": "$total_amount"}}}
+    ]
+    revenue_result = await db.bookings.aggregate(revenue_pipeline).to_list(1)
+    total_revenue = revenue_result[0]["total"] if revenue_result else 0.0
+    
+    return AdminStats(
+        total_bookings=total_bookings,
+        pending_bookings=pending_bookings,
+        completed_bookings=completed_bookings,
+        total_customers=total_customers,
+        total_cleaners=total_cleaners,
+        total_revenue=total_revenue,
+        open_tickets=open_tickets
+    )
+
+@api_router.get("/admin/bookings", response_model=List[Booking])
+async def get_all_bookings(admin_user: User = Depends(get_admin_user)):
+    """Get all bookings for admin"""
+    bookings = await db.bookings.find().sort("created_at", -1).to_list(1000)
+    return [Booking(**booking) for booking in bookings]
+
+@api_router.patch("/admin/bookings/{booking_id}")
+async def update_booking(booking_id: str, booking_update: BookingUpdate, admin_user: User = Depends(get_admin_user)):
+    """Update booking details"""
+    update_data = {}
+    
+    if booking_update.status:
+        update_data["status"] = booking_update.status
+    if booking_update.cleaner_id:
+        update_data["cleaner_id"] = booking_update.cleaner_id
+    if booking_update.booking_date:
+        update_data["booking_date"] = booking_update.booking_date
+    if booking_update.time_slot:
+        update_data["time_slot"] = booking_update.time_slot
+    
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return {"message": "Booking updated successfully"}
+
+# Cleaner Management
+@api_router.get("/admin/cleaners", response_model=List[Cleaner])
+async def get_cleaners(admin_user: User = Depends(get_admin_user)):
+    """Get all cleaners"""
+    cleaners = await db.cleaners.find().to_list(1000)
+    return [Cleaner(**cleaner) for cleaner in cleaners]
+
+@api_router.post("/admin/cleaners", response_model=Cleaner)
+async def create_cleaner(cleaner_data: CleanerCreate, admin_user: User = Depends(get_admin_user)):
+    """Create a new cleaner"""
+    # Check if cleaner already exists
+    existing = await db.cleaners.find_one({"email": cleaner_data.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Cleaner with this email already exists")
+    
+    cleaner = Cleaner(**cleaner_data.dict())
+    cleaner_dict = prepare_for_mongo(cleaner.dict())
+    await db.cleaners.insert_one(cleaner_dict)
+    return cleaner
+
+@api_router.patch("/admin/cleaners/{cleaner_id}")
+async def update_cleaner(cleaner_id: str, cleaner_update: dict, admin_user: User = Depends(get_admin_user)):
+    """Update cleaner details"""
+    cleaner_update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.cleaners.update_one(
+        {"id": cleaner_id},
+        {"$set": cleaner_update}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Cleaner not found")
+    
+    return {"message": "Cleaner updated successfully"}
+
+@api_router.delete("/admin/cleaners/{cleaner_id}")
+async def delete_cleaner(cleaner_id: str, admin_user: User = Depends(get_admin_user)):
+    """Delete cleaner"""
+    result = await db.cleaners.delete_one({"id": cleaner_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Cleaner not found")
+    
+    return {"message": "Cleaner deleted successfully"}
+
+# FAQ Management
+@api_router.get("/admin/faqs", response_model=List[FAQ])
+async def get_faqs(admin_user: User = Depends(get_admin_user)):
+    """Get all FAQs"""
+    faqs = await db.faqs.find().to_list(1000)
+    return [FAQ(**faq) for faq in faqs]
+
+@api_router.post("/admin/faqs", response_model=FAQ)
+async def create_faq(faq_data: FAQCreate, admin_user: User = Depends(get_admin_user)):
+    """Create a new FAQ"""
+    faq = FAQ(**faq_data.dict())
+    faq_dict = prepare_for_mongo(faq.dict())
+    await db.faqs.insert_one(faq_dict)
+    return faq
+
+@api_router.patch("/admin/faqs/{faq_id}")
+async def update_faq(faq_id: str, faq_update: dict, admin_user: User = Depends(get_admin_user)):
+    """Update FAQ"""
+    result = await db.faqs.update_one(
+        {"id": faq_id},
+        {"$set": faq_update}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="FAQ not found")
+    
+    return {"message": "FAQ updated successfully"}
+
+@api_router.delete("/admin/faqs/{faq_id}")
+async def delete_faq(faq_id: str, admin_user: User = Depends(get_admin_user)):
+    """Delete FAQ"""
+    result = await db.faqs.delete_one({"id": faq_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="FAQ not found")
+    
+    return {"message": "FAQ deleted successfully"}
+
+# Ticket Management
+@api_router.get("/admin/tickets", response_model=List[Ticket])
+async def get_tickets(admin_user: User = Depends(get_admin_user)):
+    """Get all support tickets"""
+    tickets = await db.tickets.find().sort("created_at", -1).to_list(1000)
+    return [Ticket(**ticket) for ticket in tickets]
+
+@api_router.patch("/admin/tickets/{ticket_id}")
+async def update_ticket(ticket_id: str, ticket_update: TicketUpdate, admin_user: User = Depends(get_admin_user)):
+    """Update ticket status and assignment"""
+    update_data = {}
+    
+    if ticket_update.status:
+        update_data["status"] = ticket_update.status
+    if ticket_update.priority:
+        update_data["priority"] = ticket_update.priority
+    if ticket_update.assigned_to:
+        update_data["assigned_to"] = ticket_update.assigned_to
+        
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.tickets.update_one(
+        {"id": ticket_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    return {"message": "Ticket updated successfully"}
+
+# Customer Support (for customers to create tickets)
+@api_router.post("/support/tickets", response_model=Ticket)
+async def create_ticket(ticket_data: TicketCreate, current_user: User = Depends(get_current_user)):
+    """Create a support ticket"""
+    ticket = Ticket(
+        customer_id=current_user.id,
+        **ticket_data.dict()
+    )
+    ticket_dict = prepare_for_mongo(ticket.dict())
+    await db.tickets.insert_one(ticket_dict)
+    return ticket
+
+# Service Management
+@api_router.post("/admin/services", response_model=Service)
+async def create_service_admin(service_data: ServiceCreate, admin_user: User = Depends(get_admin_user)):
+    """Create a new service"""
+    service = Service(**service_data.dict())
+    service_dict = prepare_for_mongo(service.dict())
+    await db.services.insert_one(service_dict)
+    return service
+
+@api_router.patch("/admin/services/{service_id}")
+async def update_service(service_id: str, service_update: dict, admin_user: User = Depends(get_admin_user)):
+    """Update service details"""
+    result = await db.services.update_one(
+        {"id": service_id},
+        {"$set": service_update}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    return {"message": "Service updated successfully"}
+
+@api_router.delete("/admin/services/{service_id}")
+async def delete_service(service_id: str, admin_user: User = Depends(get_admin_user)):
+    """Delete service"""
+    result = await db.services.delete_one({"id": service_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    return {"message": "Service deleted successfully"}
+
+# Time Slot Management
+@api_router.post("/admin/time-slots")
+async def create_time_slots(date: str, admin_user: User = Depends(get_admin_user)):
+    """Create time slots for a specific date"""
+    # Generate slots from 8 AM to 6 PM (2-hour slots)
+    start_hours = [8, 10, 12, 14, 16]
+    
+    for start_hour in start_hours:
+        start_time = f"{start_hour:02d}:00"
+        end_time = f"{start_hour + 2:02d}:00"
+        
+        # Check if slot already exists
+        existing = await db.time_slots.find_one({
+            "date": date,
+            "start_time": start_time
+        })
+        
+        if not existing:
+            slot = TimeSlot(
+                date=date,
+                start_time=start_time,
+                end_time=end_time,
+                is_available=True
+            )
+            slot_dict = prepare_for_mongo(slot.dict())
+            await db.time_slots.insert_one(slot_dict)
+    
+    return {"message": f"Time slots created for {date}"}
+
+@api_router.patch("/admin/time-slots/{slot_id}")
+async def update_time_slot(slot_id: str, availability: bool, admin_user: User = Depends(get_admin_user)):
+    """Update time slot availability"""
+    result = await db.time_slots.update_one(
+        {"id": slot_id},
+        {"$set": {"is_available": availability}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Time slot not found")
+    
+    return {"message": "Time slot updated successfully"}
+
+# Export endpoints
+@api_router.get("/admin/export/bookings")
+async def export_bookings(admin_user: User = Depends(get_admin_user)):
+    """Export bookings to CSV format"""
+    bookings = await db.bookings.find().to_list(1000)
+    
+    # Convert to CSV-friendly format
+    csv_data = []
+    for booking in bookings:
+        row = {
+            "Booking ID": booking.get("id"),
+            "Customer ID": booking.get("customer_id"),
+            "House Size": booking.get("house_size"),
+            "Frequency": booking.get("frequency"),
+            "Booking Date": booking.get("booking_date"),
+            "Time Slot": booking.get("time_slot"),
+            "Total Amount": booking.get("total_amount"),
+            "Status": booking.get("status"),
+            "Payment Status": booking.get("payment_status"),
+            "Created At": booking.get("created_at")
+        }
+        csv_data.append(row)
+    
+    return {"data": csv_data, "filename": f"bookings_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+
 # Include the router in the main app
 app.include_router(api_router)
 
