@@ -17,10 +17,13 @@ class MaidsBookingAPITester:
         self.time_slot = None
         self.a_la_carte_services = []
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, params=None, auth_required=False):
         """Run a single API test"""
         url = f"{self.api_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
+        
+        if auth_required and self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
@@ -55,6 +58,141 @@ class MaidsBookingAPITester:
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
             return False, {}
+
+    def test_login(self):
+        """Test POST /api/auth/login with demo credentials"""
+        login_data = {
+            "email": "test@maids.com",
+            "password": "test@maids@1234"
+        }
+        
+        success, response = self.run_test(
+            "Login with Demo Credentials",
+            "POST",
+            "auth/login",
+            200,
+            data=login_data
+        )
+        
+        if success and 'access_token' in response:
+            self.token = response['access_token']
+            self.user_id = response['user']['id']
+            print(f"   ✅ Login successful, token obtained")
+            print(f"   User: {response['user']['first_name']} {response['user']['last_name']}")
+        return success, response
+
+    def test_auth_me(self):
+        """Test GET /api/auth/me with token"""
+        success, response = self.run_test(
+            "Get Current User Info",
+            "GET",
+            "auth/me",
+            200,
+            auth_required=True
+        )
+        return success, response
+
+    def test_register_new_user(self):
+        """Test POST /api/auth/register"""
+        timestamp = datetime.now().strftime('%H%M%S')
+        register_data = {
+            "email": f"newuser_{timestamp}@test.com",
+            "password": "TestPassword123!",
+            "first_name": "New",
+            "last_name": "User",
+            "phone": "555-123-4567"
+        }
+        
+        success, response = self.run_test(
+            "Register New User",
+            "POST",
+            "auth/register",
+            200,
+            data=register_data
+        )
+        
+        if success and 'access_token' in response:
+            print(f"   ✅ Registration successful")
+            print(f"   New User: {response['user']['first_name']} {response['user']['last_name']}")
+        return success, response
+
+    def test_pricing_endpoints(self):
+        """Test pricing endpoints for different house sizes and frequencies"""
+        house_sizes = ["1000-1500", "2000-2500", "3000-3500", "5000+"]
+        frequencies = ["one_time", "monthly", "bi_weekly", "weekly"]
+        
+        pricing_tests_passed = 0
+        total_pricing_tests = 0
+        
+        for house_size in house_sizes:
+            for frequency in frequencies:
+                total_pricing_tests += 1
+                success, response = self.run_test(
+                    f"Get Pricing for {house_size} sq ft, {frequency}",
+                    "GET",
+                    f"pricing/{house_size}/{frequency}",
+                    200
+                )
+                
+                if success and 'base_price' in response:
+                    pricing_tests_passed += 1
+                    base_price = response['base_price']
+                    print(f"   Price: ${base_price}")
+                    
+                    # Verify minimum pricing of $125
+                    if base_price >= 125:
+                        print(f"   ✅ Meets minimum pricing requirement ($125)")
+                    else:
+                        print(f"   ❌ Below minimum pricing: ${base_price} < $125")
+        
+        print(f"\n📊 Pricing Tests: {pricing_tests_passed}/{total_pricing_tests} passed")
+        return pricing_tests_passed == total_pricing_tests
+
+    def test_get_a_la_carte_services(self):
+        """Test GET /api/services/a-la-carte"""
+        success, response = self.run_test(
+            "Get A La Carte Services",
+            "GET",
+            "services/a-la-carte",
+            200
+        )
+        
+        if success and isinstance(response, list):
+            self.a_la_carte_services = response
+            print(f"   ✅ Found {len(response)} a la carte services")
+            
+            # Verify expected services
+            expected_services = ["Blinds", "Oven Cleaning", "Inside Refrigerator"]
+            found_services = [service['name'] for service in response]
+            
+            for expected in expected_services:
+                if any(expected in name for name in found_services):
+                    print(f"   ✅ Found expected service: {expected}")
+                else:
+                    print(f"   ❌ Missing expected service: {expected}")
+                    
+            # Show pricing for some services
+            for service in response[:3]:
+                if service.get('a_la_carte_price'):
+                    print(f"   {service['name']}: ${service['a_la_carte_price']}")
+        
+        return success, response
+
+    def test_get_standard_services(self):
+        """Test GET /api/services/standard"""
+        success, response = self.run_test(
+            "Get Standard Services",
+            "GET",
+            "services/standard",
+            200
+        )
+        
+        if success and isinstance(response, list):
+            print(f"   ✅ Found {len(response)} standard services")
+            for service in response:
+                print(f"   - {service['name']}: {service['description'][:50]}...")
+        
+        return success, response
 
     def test_get_services(self):
         """Test GET /api/services"""
