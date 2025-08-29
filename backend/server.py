@@ -535,7 +535,8 @@ async def login(user_data: UserLogin):
         "email": user["email"],
         "first_name": user["first_name"],
         "last_name": user["last_name"],
-        "phone": user.get("phone")
+        "phone": user.get("phone"),
+        "role": user.get("role", "customer")
     }
     
     return AuthResponse(access_token=access_token, user=user_response)
