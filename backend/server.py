@@ -203,6 +203,73 @@ class BookingCreate(BaseModel):
     time_slot: str
     special_instructions: Optional[str] = None
 
+class Cleaner(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: EmailStr
+    first_name: str
+    last_name: str
+    phone: str
+    is_active: bool = True
+    rating: float = 0.0
+    total_jobs: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CleanerCreate(BaseModel):
+    email: EmailStr
+    first_name: str
+    last_name: str
+    phone: str
+
+class FAQ(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    question: str
+    answer: str
+    category: str
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class FAQCreate(BaseModel):
+    question: str
+    answer: str
+    category: str
+    is_active: bool = True
+
+class Ticket(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    customer_id: str
+    subject: str
+    message: str
+    status: TicketStatus = TicketStatus.OPEN
+    priority: TicketPriority = TicketPriority.MEDIUM
+    assigned_to: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class TicketCreate(BaseModel):
+    subject: str
+    message: str
+    priority: TicketPriority = TicketPriority.MEDIUM
+
+class TicketUpdate(BaseModel):
+    status: Optional[TicketStatus] = None
+    priority: Optional[TicketPriority] = None
+    assigned_to: Optional[str] = None
+
+class BookingUpdate(BaseModel):
+    status: Optional[BookingStatus] = None
+    cleaner_id: Optional[str] = None
+    booking_date: Optional[str] = None
+    time_slot: Optional[str] = None
+
+class AdminStats(BaseModel):
+    total_bookings: int
+    pending_bookings: int
+    completed_bookings: int
+    total_customers: int
+    total_cleaners: int
+    total_revenue: float
+    open_tickets: int
+
 # Auth Helper Functions
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
