@@ -18,6 +18,7 @@ function App() {
           <Route path="/" element={<BookingFlow />} />
           <Route path="/confirmation/:bookingId" element={<BookingConfirmation />} />
         </Routes>
+        <Toaster />
       </Router>
     </div>
   );
