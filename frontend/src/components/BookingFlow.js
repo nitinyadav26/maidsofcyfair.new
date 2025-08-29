@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, CreditCard, ShoppingCart, Check, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, MapPin, CreditCard, ShoppingCart, Check, ArrowRight, ArrowLeft, Home, Repeat } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import axios from 'axios';
 
