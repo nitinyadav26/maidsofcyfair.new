@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, CreditCard, ShoppingCart, Check, ArrowRight, ArrowLeft, Home, Repeat } from 'lucide-react';
+import { Calendar, Clock, MapPin, CreditCard, Home, Repeat, Check, ArrowRight, ArrowLeft, Plus, Minus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -20,7 +20,12 @@ const BookingFlow = () => {
 
   // Data states
   const [services, setServices] = useState([]);
-  const [cart, setCart] = useState([]);
+  const [aLaCarteServices, setALaCarteServices] = useState([]);
+  const [houseSize, setHouseSize] = useState('');
+  const [frequency, setFrequency] = useState('');
+  const [basePrice, setBasePrice] = useState(0);
+  const [selectedServices, setSelectedServices] = useState([]);
+  const [aLaCarteCart, setALaCarteCart] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
   const [availableDates, setAvailableDates] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
@@ -40,15 +45,33 @@ const BookingFlow = () => {
   // Load initial data
   useEffect(() => {
     loadServices();
+    loadALaCarteServices();
     loadAvailableDates();
   }, []);
 
+  // Update pricing when house size or frequency changes
+  useEffect(() => {
+    if (houseSize && frequency) {
+      fetchPricing();
+    }
+  }, [houseSize, frequency]);
+
   const loadServices = async () => {
     try {
-      const response = await axios.get(`${API}/services`);
+      const response = await axios.get(`${API}/services/standard`);
       setServices(response.data);
     } catch (error) {
       toast.error('Failed to load services');
+      console.error(error);
+    }
+  };
+
+  const loadALaCarteServices = async () => {
+    try {
+      const response = await axios.get(`${API}/services/a-la-carte`);
+      setALaCarteServices(response.data);
+    } catch (error) {
+      toast.error('Failed to load a la carte services');
       console.error(error);
     }
   };
@@ -63,6 +86,16 @@ const BookingFlow = () => {
     }
   };
 
+  const fetchPricing = async () => {
+    try {
+      const response = await axios.get(`${API}/pricing/${houseSize}/${frequency}`);
+      setBasePrice(response.data.base_price);
+    } catch (error) {
+      console.error('Failed to fetch pricing:', error);
+      setBasePrice(125); // fallback to minimum price
+    }
+  };
+
   const loadTimeSlots = async (date) => {
     try {
       const response = await axios.get(`${API}/time-slots?date=${date}`);
@@ -73,47 +106,84 @@ const BookingFlow = () => {
     }
   };
 
-  // Cart functions
-  const addToCart = (service) => {
-    const existingItem = cart.find(item => item.serviceId === service.id);
+  // House size options
+  const houseSizeOptions = [
+    { value: '1000-1500', label: '1000-1500 sq ft' },
+    { value: '1500-2000', label: '1500-2000 sq ft' },
+    { value: '2000-2500', label: '2000-2500 sq ft' },
+    { value: '2500-3000', label: '2500-3000 sq ft' },
+    { value: '3000-3500', label: '3000-3500 sq ft' },
+    { value: '3500-4000', label: '3500-4000 sq ft' },
+    { value: '4000-4500', label: '4000-4500 sq ft' },
+    { value: '5000+', label: '5000+ sq ft' }
+  ];
+
+  // Frequency options
+  const frequencyOptions = [
+    { value: 'one_time', label: 'One Time Deep Clean / Move Out' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'every_3_weeks', label: 'Every 3 Weeks' },
+    { value: 'bi_weekly', label: 'Bi-Weekly' },
+    { value: 'weekly', label: 'Weekly' }
+  ];
+
+  // Service functions
+  const addService = (service) => {
+    if (!selectedServices.find(s => s.serviceId === service.id)) {
+      setSelectedServices([...selectedServices, {
+        serviceId: service.id,
+        serviceName: service.name,
+        quantity: 1
+      }]);
+      toast.success(`${service.name} added`);
+    }
+  };
+
+  const removeService = (serviceId) => {
+    setSelectedServices(selectedServices.filter(s => s.serviceId !== serviceId));
+  };
+
+  // A la carte functions
+  const addToALaCarte = (service) => {
+    const existingItem = aLaCarteCart.find(item => item.serviceId === service.id);
     if (existingItem) {
-      setCart(cart.map(item => 
+      setALaCarteCart(aLaCarteCart.map(item => 
         item.serviceId === service.id 
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
     } else {
-      setCart([...cart, {
+      setALaCarteCart([...aLaCarteCart, {
         serviceId: service.id,
         serviceName: service.name,
-        price: service.base_price,
+        price: service.a_la_carte_price,
         quantity: 1
       }]);
     }
     toast.success(`${service.name} added to cart`);
   };
 
-  const removeFromCart = (serviceId) => {
-    setCart(cart.filter(item => item.serviceId !== serviceId));
-  };
-
-  const updateCartQuantity = (serviceId, quantity) => {
+  const updateALaCarteQuantity = (serviceId, quantity) => {
     if (quantity === 0) {
-      removeFromCart(serviceId);
+      setALaCarteCart(aLaCarteCart.filter(item => item.serviceId !== serviceId));
       return;
     }
-    setCart(cart.map(item => 
+    setALaCarteCart(aLaCarteCart.map(item => 
       item.serviceId === serviceId ? { ...item, quantity } : item
     ));
   };
 
+  const getALaCarteTotal = () => {
+    return aLaCarteCart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
   const getTotalAmount = () => {
-    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return basePrice + getALaCarteTotal();
   };
 
   // Step navigation
   const nextStep = () => {
-    if (currentStep < 5) {
+    if (currentStep < 6) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -147,7 +217,13 @@ const BookingFlow = () => {
           zip_code: customerInfo.zipCode,
           is_guest: true
         },
-        services: cart.map(item => ({
+        house_size: houseSize,
+        frequency: frequency,
+        services: selectedServices.map(item => ({
+          service_id: item.serviceId,
+          quantity: item.quantity
+        })),
+        a_la_carte_services: aLaCarteCart.map(item => ({
           service_id: item.serviceId,
           quantity: item.quantity
         })),
@@ -180,39 +256,41 @@ const BookingFlow = () => {
   // Step validation
   const canProceedToStep = (step) => {
     switch (step) {
-      case 2: return cart.length > 0;
-      case 3: return selectedDate !== '';
-      case 4: return selectedTimeSlot !== '';
-      case 5: return customerInfo.email && customerInfo.firstName && customerInfo.lastName;
+      case 2: return houseSize && frequency && selectedServices.length > 0;
+      case 3: return true; // A la carte is optional
+      case 4: return selectedDate !== '';
+      case 5: return selectedTimeSlot !== '';
+      case 6: return customerInfo.email && customerInfo.firstName && customerInfo.lastName;
       default: return true;
     }
   };
 
   // Step indicators
   const steps = [
-    { number: 1, title: 'Select Services', icon: ShoppingCart },
-    { number: 2, title: 'Choose Date', icon: Calendar },
-    { number: 3, title: 'Pick Time', icon: Clock },
-    { number: 4, title: 'Your Details', icon: MapPin },
-    { number: 5, title: 'Confirm & Pay', icon: CreditCard }
+    { number: 1, title: 'Service & Size', icon: Home },
+    { number: 2, title: 'A La Carte', icon: Plus },
+    { number: 3, title: 'Choose Date', icon: Calendar },
+    { number: 4, title: 'Pick Time', icon: Clock },
+    { number: 5, title: 'Your Details', icon: MapPin },
+    { number: 6, title: 'Confirm & Pay', icon: CreditCard }
   ];
 
   return (
-    <div className="min-h-screen py-8">
+    <div className="min-h-screen bg-gray-50 py-8">
       <div className="container">
         {/* Header */}
-        <div className="text-center mb-8 fade-in">
-          <h1 className="text-4xl font-bold text-white mb-4">
+        <div className="professional-header mb-8 rounded-xl">
+          <h1 className="text-4xl font-bold mb-4">
             Book Your Cleaning Service
           </h1>
-          <p className="text-xl text-white/80">
+          <p className="text-xl opacity-90">
             Professional cleaning services at your convenience
           </p>
         </div>
 
         {/* Step Indicator */}
         <div className="flex justify-center mb-8">
-          <div className="flex space-x-4 bg-white/10 backdrop-blur-lg rounded-full p-2">
+          <div className="step-indicator flex space-x-4 p-2">
             {steps.map((step) => {
               const Icon = step.icon;
               const isActive = currentStep === step.number;
@@ -223,10 +301,10 @@ const BookingFlow = () => {
                   key={step.number}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all duration-300 ${
                     isActive
-                      ? 'bg-white text-purple-600'
+                      ? 'step-active'
                       : isCompleted
-                      ? 'bg-green-500 text-white'
-                      : 'text-white/60'
+                      ? 'step-completed'
+                      : 'step-inactive'
                   }`}
                 >
                   <Icon size={20} />
@@ -239,83 +317,171 @@ const BookingFlow = () => {
         </div>
 
         {/* Main Content */}
-        <Card className="glass-effect card-shadow rounded-2xl border-0 slide-up">
+        <Card className="booking-card slide-up">
           <CardContent className="p-8">
-            {/* Step 1: Select Services */}
+            {/* Step 1: Service & House Size Selection */}
             {currentStep === 1 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
-                    Choose Your Cleaning Services
+                    Select Service Type & House Size
                   </CardTitle>
-                  <p className="text-gray-600">Select the services you need</p>
+                  <p className="text-gray-600">Choose your cleaning service and home size for pricing</p>
                 </CardHeader>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Services</h3>
-                    {services.map((service) => (
-                      <Card key={service.id} className="border border-gray-200 hover:border-purple-300 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-semibold text-gray-800">{service.name}</h4>
-                            <Badge variant="secondary">${service.base_price}</Badge>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-3">{service.description}</p>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-500">{service.duration_hours} hours</span>
+                <div className="space-y-6">
+                  {/* House Size Selection */}
+                  <div>
+                    <label className="block text-lg font-semibold text-gray-800 mb-4">
+                      House Size (Square Footage)
+                    </label>
+                    <Select value={houseSize} onValueChange={setHouseSize}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select your house size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {houseSizeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Frequency Selection */}
+                  <div>
+                    <label className="block text-lg font-semibold text-gray-800 mb-4">
+                      Service Frequency
+                    </label>
+                    <Select value={frequency} onValueChange={setFrequency}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select service frequency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {frequencyOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Pricing Display */}
+                  {basePrice > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-800">Base Price:</span>
+                        <span className="text-2xl font-bold text-primary">${basePrice.toFixed(2)}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Minimum charge is $125. Additional services available on next step.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Standard Services Selection */}
+                  <div>
+                    <label className="block text-lg font-semibold text-gray-800 mb-4">
+                      Select Cleaning Services
+                    </label>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {services.map((service) => {
+                        const isSelected = selectedServices.find(s => s.serviceId === service.id);
+                        return (
+                          <Card 
+                            key={service.id} 
+                            className={`service-card cursor-pointer ${isSelected ? 'selected' : ''}`}
+                            onClick={() => isSelected ? removeService(service.id) : addService(service)}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-semibold text-gray-800">{service.name}</h4>
+                                {isSelected && <Check className="text-primary" size={20} />}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-3">{service.description}</p>
+                              {service.duration_hours && (
+                                <span className="text-sm text-gray-500">Duration: {service.duration_hours} hours</span>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: A La Carte Services */}
+            {currentStep === 2 && (
+              <div>
+                <CardHeader className="text-center pb-6">
+                  <CardTitle className="text-2xl font-bold text-gray-800">
+                    Add A La Carte Services
+                  </CardTitle>
+                  <p className="text-gray-600">Optional additional services to enhance your cleaning</p>
+                </CardHeader>
+
+                <div className="grid lg:grid-cols-3 gap-6">
+                  {/* A La Carte Services */}
+                  <div className="lg:col-span-2">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Add-Ons</h3>
+                    <div className="grid md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                      {aLaCarteServices.map((service) => (
+                        <Card key={service.id} className="service-card">
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-semibold text-gray-800 text-sm">{service.name}</h4>
+                              <Badge variant="secondary">${service.a_la_carte_price}</Badge>
+                            </div>
+                            <p className="text-xs text-gray-600 mb-3">{service.description}</p>
                             <Button 
-                              onClick={() => addToCart(service)}
-                              className="btn-hover bg-purple-600 hover:bg-purple-700"
+                              onClick={() => addToALaCarte(service)}
+                              className="w-full btn-hover bg-primary hover:bg-primary-light"
                               size="sm"
                             >
                               Add to Cart
                             </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Shopping Cart */}
+                  {/* A La Carte Cart */}
                   <div className="bg-gray-50 rounded-lg p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                      Your Cart ({cart.length} items)
+                      A La Carte Cart ({aLaCarteCart.length} items)
                     </h3>
                     
-                    {cart.length === 0 ? (
-                      <p className="text-gray-500">No services selected</p>
+                    {aLaCarteCart.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">No add-on services selected</p>
                     ) : (
                       <>
-                        <div className="space-y-3 mb-4">
-                          {cart.map((item) => (
+                        <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
+                          {aLaCarteCart.map((item) => (
                             <div key={item.serviceId} className="flex justify-between items-center bg-white p-3 rounded-lg">
-                              <div>
-                                <h4 className="font-medium text-gray-800">{item.serviceName}</h4>
-                                <p className="text-sm text-gray-600">${item.price} each</p>
+                              <div className="flex-1">
+                                <h4 className="font-medium text-gray-800 text-sm">{item.serviceName}</h4>
+                                <p className="text-xs text-gray-600">${item.price} each</p>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => updateCartQuantity(item.serviceId, item.quantity - 1)}
+                                  onClick={() => updateALaCarteQuantity(item.serviceId, item.quantity - 1)}
                                 >
-                                  -
+                                  <Minus size={14} />
                                 </Button>
-                                <span className="w-8 text-center">{item.quantity}</span>
+                                <span className="w-8 text-center text-sm">{item.quantity}</span>
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => updateCartQuantity(item.serviceId, item.quantity + 1)}
+                                  onClick={() => updateALaCarteQuantity(item.serviceId, item.quantity + 1)}
                                 >
-                                  +
-                                </Button>
-                                <Button 
-                                  variant="destructive" 
-                                  size="sm"
-                                  onClick={() => removeFromCart(item.serviceId)}
-                                >
-                                  Remove
+                                  <Plus size={14} />
                                 </Button>
                               </div>
                             </div>
@@ -323,20 +489,40 @@ const BookingFlow = () => {
                         </div>
                         
                         <div className="border-t pt-3">
-                          <div className="flex justify-between items-center font-semibold text-lg">
-                            <span>Total: </span>
-                            <span className="text-purple-600">${getTotalAmount().toFixed(2)}</span>
+                          <div className="flex justify-between items-center font-semibold">
+                            <span>Add-on Total:</span>
+                            <span className="text-primary">${getALaCarteTotal().toFixed(2)}</span>
                           </div>
                         </div>
                       </>
                     )}
+
+                    {/* Total Summary */}
+                    <div className="mt-6 p-4 bg-white rounded-lg border-2 border-primary">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Base Service:</span>
+                          <span>${basePrice.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Add-ons:</span>
+                          <span>${getALaCarteTotal().toFixed(2)}</span>
+                        </div>
+                        <div className="border-t pt-2">
+                          <div className="flex justify-between items-center font-bold text-lg">
+                            <span>Total:</span>
+                            <span className="text-primary">${getTotalAmount().toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Choose Date */}
-            {currentStep === 2 && (
+            {/* Step 3: Choose Date */}
+            {currentStep === 3 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
@@ -353,11 +539,7 @@ const BookingFlow = () => {
                     return (
                       <Card 
                         key={date}
-                        className={`cursor-pointer transition-all duration-300 ${
-                          isSelected 
-                            ? 'ring-2 ring-purple-500 bg-purple-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
+                        className={`service-card cursor-pointer ${isSelected ? 'selected' : ''}`}
                         onClick={() => handleDateSelect(date)}
                       >
                         <CardContent className="p-4 text-center">
@@ -378,8 +560,8 @@ const BookingFlow = () => {
               </div>
             )}
 
-            {/* Step 3: Pick Time */}
-            {currentStep === 3 && (
+            {/* Step 4: Pick Time */}
+            {currentStep === 4 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
@@ -403,15 +585,11 @@ const BookingFlow = () => {
                     return (
                       <Card 
                         key={`${slot.start_time}-${slot.end_time}`}
-                        className={`cursor-pointer transition-all duration-300 ${
-                          isSelected 
-                            ? 'ring-2 ring-purple-500 bg-purple-50' 
-                            : 'hover:bg-gray-50'
-                        }`}
+                        className={`service-card cursor-pointer ${isSelected ? 'selected' : ''}`}
                         onClick={() => setSelectedTimeSlot(timeSlotString)}
                       >
                         <CardContent className="p-4 text-center">
-                          <Clock className="mx-auto mb-2 text-purple-600" size={24} />
+                          <Clock className="mx-auto mb-2 text-primary" size={24} />
                           <div className="font-semibold text-gray-800">
                             {slot.start_time} - {slot.end_time}
                           </div>
@@ -423,8 +601,8 @@ const BookingFlow = () => {
               </div>
             )}
 
-            {/* Step 4: Customer Details */}
-            {currentStep === 4 && (
+            {/* Step 5: Customer Details */}
+            {currentStep === 5 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
@@ -529,8 +707,8 @@ const BookingFlow = () => {
               </div>
             )}
 
-            {/* Step 5: Confirmation */}
-            {currentStep === 5 && (
+            {/* Step 6: Confirmation */}
+            {currentStep === 6 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
@@ -548,6 +726,16 @@ const BookingFlow = () => {
                     <CardContent>
                       <div className="space-y-3">
                         <div className="flex justify-between">
+                          <span className="text-gray-600">House Size:</span>
+                          <span className="font-medium">{houseSize} sq ft</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Frequency:</span>
+                          <span className="font-medium">
+                            {frequencyOptions.find(f => f.value === frequency)?.label}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
                           <span className="text-gray-600">Date:</span>
                           <span className="font-medium">
                             {new Date(selectedDate).toLocaleDateString('en-US', { 
@@ -562,20 +750,22 @@ const BookingFlow = () => {
                           <span className="text-gray-600">Time:</span>
                           <span className="font-medium">{selectedTimeSlot}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Services:</span>
-                          <div className="text-right">
-                            {cart.map((item) => (
-                              <div key={item.serviceId}>
-                                {item.serviceName} × {item.quantity}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                         <div className="border-t pt-3">
-                          <div className="flex justify-between font-semibold text-lg">
-                            <span>Total Amount:</span>
-                            <span className="text-purple-600">${getTotalAmount().toFixed(2)}</span>
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Base Service:</span>
+                              <span>${basePrice.toFixed(2)}</span>
+                            </div>
+                            {aLaCarteCart.length > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Add-on Services:</span>
+                                <span>${getALaCarteTotal().toFixed(2)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                              <span>Total Amount:</span>
+                              <span className="text-primary">${getTotalAmount().toFixed(2)}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -641,11 +831,11 @@ const BookingFlow = () => {
                 Previous
               </Button>
 
-              {currentStep < 5 ? (
+              {currentStep < 6 ? (
                 <Button
                   onClick={nextStep}
                   disabled={!canProceedToStep(currentStep + 1)}
-                  className="btn-hover bg-purple-600 hover:bg-purple-700"
+                  className="btn-hover bg-primary hover:bg-primary-light"
                 >
                   Next
                   <ArrowRight className="ml-2" size={16} />
