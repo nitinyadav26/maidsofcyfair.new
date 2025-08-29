@@ -8,13 +8,14 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #ffffff;
   min-height: 100vh;
   color: #1a202c;
 }
 
 .App {
   min-height: 100vh;
+  background: #ffffff;
 }
 
 /* Custom scrollbar */
@@ -28,12 +29,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #667eea;
+  background: #2563eb;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #5a67d8;
+  background: #1d4ed8;
 }
 
 /* Utility classes */
@@ -44,20 +45,37 @@ body {
 }
 
 .glass-effect {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .card-shadow {
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Blue theme colors */
+.bg-primary {
+  background-color: #2563eb;
+}
+
+.bg-primary-light {
+  background-color: #3b82f6;
+}
+
+.text-primary {
+  color: #2563eb;
+}
+
+.border-primary {
+  border-color: #2563eb;
 }
 
 /* Animation classes */
@@ -97,15 +115,15 @@ body {
 
 .btn-hover:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
 /* Loading animation */
 .loading-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #ffffff40;
-  border-top: 2px solid #ffffff;
+  border: 2px solid rgba(37, 99, 235, 0.2);
+  border-top: 2px solid #2563eb;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -113,6 +131,67 @@ body {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* Header styles */
+.header-nav {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.auth-form {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Clean white card design */
+.booking-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Step indicator with blue theme */
+.step-indicator {
+  background: rgba(37, 99, 235, 0.1);
+  border-radius: 50px;
+}
+
+.step-active {
+  background: #2563eb;
+  color: white;
+}
+
+.step-completed {
+  background: #10b981;
+  color: white;
+}
+
+.step-inactive {
+  color: #6b7280;
+}
+
+/* Service cards */
+.service-card {
+  background: #ffffff;
+  border: 2px solid #f3f4f6;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.service-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+}
+
+.service-card.selected {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
 }
 
 /* Responsive design */
@@ -125,5 +204,34 @@ body {
 @media (max-width: 480px) {
   .container {
     padding: 0 12px;
+  }
+}
+
+/* Professional header */
+.professional-header {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: white;
+  padding: 3rem 0;
+  text-align: center;
+}
+
+.professional-header h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.professional-header p {
+  font-size: 1.25rem;
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .professional-header h1 {
+    font-size: 2rem;
+  }
+  
+  .professional-header p {
+    font-size: 1rem;
   }
 }
