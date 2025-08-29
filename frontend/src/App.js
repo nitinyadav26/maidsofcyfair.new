@@ -39,7 +39,13 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
 const PublicRoute = ({ children }) => {
   const { user } = useAuth();
-  return user ? <Navigate to="/" /> : children;
+  if (user && user.role === 'admin') {
+    return <Navigate to="/admin" />;
+  }
+  if (user && user.role === 'customer') {
+    return <Navigate to="/" />;
+  }
+  return children;
 };
 
 function AppContent() {
