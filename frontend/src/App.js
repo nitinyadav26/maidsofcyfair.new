@@ -6,6 +6,8 @@ import "./App.css";
 import Header from "./components/Header";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import AdminLogin from "./components/AdminLogin";
+import AdminDashboard from "./components/AdminDashboard";
 import BookingFlow from "./components/BookingFlow";
 import BookingConfirmation from "./components/BookingConfirmation";
 import { Toaster } from "./components/ui/sonner";
