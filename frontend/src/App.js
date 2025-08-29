@@ -53,8 +53,9 @@ function AppContent() {
 
   return (
     <div className="App">
-      <Header />
+      {user?.role !== 'admin' && <Header />}
       <Routes>
+        {/* Public Routes */}
         <Route path="/login" element={
           <PublicRoute>
             <Login />
@@ -65,6 +66,20 @@ function AppContent() {
             <Register />
           </PublicRoute>
         } />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/login" element={
+          <PublicRoute>
+            <AdminLogin />
+          </PublicRoute>
+        } />
+        <Route path="/admin" element={
+          <ProtectedRoute adminOnly={true}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+        
+        {/* Customer Routes */}
         <Route path="/" element={
           <ProtectedRoute>
             <BookingFlow />
