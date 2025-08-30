@@ -452,6 +452,16 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
+          {/* Calendar Job Assignment */}
+          <TabsContent value="calendar" className="space-y-6">
+            <CalendarJobAssignment />
+          </TabsContent>
+
+          {/* Invoice Management */}
+          <TabsContent value="invoices" className="space-y-6">
+            <InvoiceManagement />
+          </TabsContent>
+
           {/* Bookings Management */}
           <TabsContent value="bookings" className="space-y-6">
             <div className="flex justify-between items-center">
