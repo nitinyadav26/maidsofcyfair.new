@@ -190,6 +190,8 @@ class Booking(BaseModel):
     payment_status: PaymentStatus = PaymentStatus.PENDING
     special_instructions: Optional[str] = None
     cleaner_id: Optional[str] = None
+    # Google Calendar Integration
+    calendar_event_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
