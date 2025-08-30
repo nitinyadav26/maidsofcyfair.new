@@ -10,12 +10,16 @@ class MaidsBookingAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.token = None
+        self.admin_token = None
         self.user_id = None
         self.booking_id = None
         self.customer_id = None
         self.available_date = None
         self.time_slot = None
         self.a_la_carte_services = []
+        self.cleaners = []
+        self.invoice_id = None
+        self.completed_booking_id = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None, params=None, auth_required=False):
         """Run a single API test"""
