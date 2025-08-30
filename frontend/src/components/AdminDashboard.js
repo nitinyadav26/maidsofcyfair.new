@@ -47,7 +47,9 @@ const AdminDashboard = () => {
     email: '',
     first_name: '',
     last_name: '',
-    phone: ''
+    phone: '',
+    google_calendar_credentials: null,
+    calendar_integration_enabled: false
   });
   
   const [newFAQ, setNewFAQ] = useState({
