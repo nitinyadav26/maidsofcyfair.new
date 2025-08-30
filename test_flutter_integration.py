@@ -4,7 +4,7 @@ import requests
 import json
 
 # Test the mobile app API integration
-BACKEND_URL = "https://maid-booking-system.preview.emergentagent.com/api"
+BACKEND_URL = "https://maidsbooking.preview.emergentagent.com/api"
 
 def test_cleaner_login():
     """Test cleaner login functionality"""

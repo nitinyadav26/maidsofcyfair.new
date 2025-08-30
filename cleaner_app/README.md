@@ -96,7 +96,7 @@ lib/
    ```
 
 3. **Configure API endpoint**
-   - The app is configured to connect to: `https://maid-booking-system.preview.emergentagent.com/api`
+   - The app is configured to connect to: `https://maidsbooking.preview.emergentagent.com/api`
    - Update `baseUrl` in `lib/services/api_service.dart` if needed
 
 4. **Run the app**

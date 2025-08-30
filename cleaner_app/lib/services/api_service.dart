@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://maid-booking-system.preview.emergentagent.com/api';
+  static const String baseUrl = 'https://maidsbooking.preview.emergentagent.com/api';
   
   String? _authToken;
   

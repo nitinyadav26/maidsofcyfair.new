@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 # Backend configuration
-BACKEND_URL = "https://maid-booking-system.preview.emergentagent.com/api"
+BACKEND_URL = "https://maidsbooking.preview.emergentagent.com/api"
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "test_database"
 

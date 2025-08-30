@@ -1,0 +1,80 @@
+<analysis>
+The AI engineer successfully initiated development of the Maids of Cyfair booking system, adhering to a customer-first approach. Key accomplishments include building the customer booking portal with mock data, implementing a robust authentication system, and developing a significant portion of the admin dashboard. A critical database schema mismatch was identified and resolved during the admin development phase, showcasing effective debugging. Subsequently, a cross-platform Flutter mobile app for cleaners was scaffolded. The most recent focus was on integrating Google Calendar functionality into the backend and frontend for cleaner scheduling. The process has been iterative, leveraging testing agents and addressing user feedback. The current state is a partially integrated system, with the Flutter app and Google Calendar features in active development and requiring comprehensive testing. The engineer is now tasked with fixing a routing issue where the app lands directly on the booking page instead of the login.
+</analysis>
+
+<product_requirements>
+The goal is to build a complete booking, scheduling, and management system for Maids of Cyfair. The existing landing page is out of scope. The system must include:
+
+1.  **Customer Booking Portal**: Account/guest checkout, shopping cart for services, date-first time slot selection, address input, special instructions, booking tracking, Stripe payment (skipped for now), and automated notifications (email/SMS - skipped for now).
+2.  **Admin Dashboard**: View/manage orders/bookings, assign jobs (manual/auto), add/edit service pricing/time slots/FAQ/templates, export data, manage user/cleaner accounts, process refunds, reschedule/cancel jobs, full job calendar view (no over-booking), and a help desk.
+3.  **Cleaner Mobile App (Flutter)**: Login, view assigned jobs, see details, mark checklist items, clock in/out, update ETA, communicate with customers, mark jobs as completed.
+4.  **Integrations**: Stripe, Twilio (SMS), SendGrid (Email) were initially requested but deferred. Google Calendar API is now required for cleaner scheduling, allowing cleaners to provide API keys/Google Auth and showing their schedules in the admin dashboard. Order details in the admin panel should show selected services and plans.
+</product_requirements>
+
+<key_technical_concepts>
+-   **Full-Stack**: React (frontend), FastAPI (backend), MongoDB (database).
+-   **Frontend**: Shadcn UI, Tailwind CSS, React Router, Axios, , .
+-   **Backend**: FastAPI, , , , , , , , , , .
+-   **Mobile**: Flutter (for cross-platform cleaner app).
+-   **Authentication**: JWT-based,  for state management,  for password hashing.
+-   **Database**: MongoDB, UUIDs for IDs, ISO strings for DateTime serialization.
+-   **Deployment**: Kubernetes-managed environment with Supervisor for service control.
+-   **Testing**:  (LLM-based) for comprehensive testing, curl for API validation.
+</key_technical_concepts>
+
+<code_architecture>
+The application follows a standard full-stack architecture with separate , , and a newly added  for Flutter.
+
+
+
+-   **/app/backend/server.py**: Main FastAPI application.
+    -   **Changes**: Initial setup, added user and authentication endpoints,  for password hashing, implemented services management (with category/a la carte), booking logic, admin endpoints (dashboard stats, manage bookings/services/cleaners), and Google Calendar related endpoints (oauth, callback, sync). Contains startup logic for initial services and admin user.
+-   **/app/backend/services/google_calendar_service.py**: New file to encapsulate Google Calendar API interactions, including token management and event creation/retrieval.
+-   **/app/backend/requirements.txt**: Updated to include To use the fastapi command, please install "fastapi[standard]":
+
+	pip install "fastapi[standard]", , , , , , , ,  and other dependencies.
+-   **/app/frontend/src/App.js**: Main React component and routing.
+    -   **Changes**: Initial structure, integrated , added authentication routes (, ), implemented , and added admin-specific routes (, , ). Sets global white background.
+-   **/app/frontend/src/App.css**: Global CSS.
+    -   **Changes**: Initial styling, set a white background as per user request, and Tailwind CSS configuration.
+-   **/app/frontend/src/contexts/AuthContext.js**: New file to manage user authentication state (login/logout, user data, tokens, roles) across the React application.
+-   **/app/frontend/src/components/BookingFlow.js**: New file, core customer booking logic.
+    -   **Changes**: Implemented multi-step booking (service selection, date/time, address), integrated with backend APIs, updated to support  and  pricing models.
+-   **/app/frontend/src/components/BookingConfirmation.js**: New file, displays booking summary after completion.
+-   **/app/frontend/src/components/Header.js**: New file for global navigation.
+    -   **Changes**: Added login/register links, and conditionally displays admin dashboard link based on user role.
+-   **/app/frontend/src/components/Login.js & Register.js**: New files for user authentication forms.
+-   **/app/frontend/src/components/AdminLogin.js**: New file for admin-specific login.
+-   **/app/frontend/src/components/AdminDashboard.js**: New file, main admin interface.
+    -   **Changes**: Scaffolded with sections for dashboard overview, service management, booking management, user management, and cleaner management. Updated to support Google Calendar integration with cleaner accounts and an enhanced booking details view.
+-   **/app/frontend/src/components/CalendarIntegration.js**: New file, component for managing and displaying cleaner calendars within the admin dashboard.
+-   **/app/frontend/src/components/BookingDetailsModal.js**: New file, modal to display detailed information about a specific booking, including services and plan.
+-   **/app/cleaner_app/**: New Flutter project directory. Contains models, services, screens, and widgets necessary for the cleaner mobile application.
+-   **/app/test_db.py, clear_db.py, fix_bookings.py, setup_demo_cleaner.py, test_flutter_integration.py**: Utility scripts for database management, data fixing, setting up demo data, and testing.
+</code_architecture>
+
+<pending_tasks>
+-   Complete comprehensive testing for the entire application, including customer portal, admin dashboard, and cleaner mobile app.
+-   Address the frontend routing issue: the website should not show the booking page directly on initial load, but rather the login/home page.
+-   Fully integrate Stripe for payment processing.
+-   Implement Twilio for SMS notifications and SendGrid for email notifications.
+-   Further development of admin dashboard features such as assigning jobs, exporting data, managing user/cleaner accounts, processing refunds, rescheduling/canceling jobs, and building out the help desk.
+-   Implement the cleaner mobile app's full functionality for clock-in/out, ETA updates, communication, and job completion.
+</pending_tasks>
+
+<current_work>
+Immediately before this summary request, the AI engineer was implementing the Google Calendar integration. This involved:
+1.  **Backend changes**: Installing Google Calendar API client libraries (, , ), creating  to handle calendar interactions, and modifying  to include Google Calendar related endpoints for cleaner authorization and event synchronization, as well as updating cleaner and booking models to accommodate calendar links.
+2.  **Frontend changes**: Updating the admin dashboard () to allow for Google Calendar integration during cleaner creation. Two new frontend components were just created:
+    -   : Intended to display and manage cleaner schedules from Google Calendar.
+    -   : Designed to provide enhanced details for bookings, including selected services and plans, which is a new user request.
+The last explicit user request was to fix the routing issue where the website directly shows the booking page and then to do everything and test all features, implying a need for thorough validation of the newly integrated Google Calendar features and other existing functionalities.
+</current_work>
+
+<optional_next_step>
+Investigate and fix the frontend routing issue where the website loads the booking page directly on visit, then perform comprehensive testing of all implemented features.
+</optional_next_step>
+
+<next_step_quotes>
+when i visit the website it shows the booking page directly , do everything and test all features
+</next_step_quotes>
