@@ -341,7 +341,7 @@ const AdminDashboard = () => {
 
       <div className="container py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-none lg:flex">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:grid-cols-none lg:flex">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2">
               <BarChart3 size={16} />
               <span>Dashboard</span>
@@ -349,6 +349,14 @@ const AdminDashboard = () => {
             <TabsTrigger value="bookings" className="flex items-center space-x-2">
               <Calendar size={16} />
               <span>Bookings</span>
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center space-x-2">
+              <CalendarDays size={16} />
+              <span>Calendar</span>
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="flex items-center space-x-2">
+              <Receipt size={16} />
+              <span>Invoices</span>
             </TabsTrigger>
             <TabsTrigger value="cleaners" className="flex items-center space-x-2">
               <UserCheck size={16} />
