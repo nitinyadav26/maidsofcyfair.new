@@ -101,3 +101,122 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Build advanced admin dashboard features: 1) Google Calendar integration with drag-and-drop job assignment to cleaners' calendars with proper time blocking based on job duration, and 2) Complete invoicing system for orders received with PDF generation and tracking."
+
+backend:
+  - task: "Google Calendar Service Integration"
+    implemented: true
+    working: "unknown"
+    file: "backend/services/google_calendar_service.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: "Service exists but needs enhancement for calendar view and job assignment"
+
+  - task: "Calendar Management API Endpoints"
+    implemented: false
+    working: false
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need to create endpoints for calendar view, job assignment, and time blocking"
+
+  - task: "Job Duration Calculation System"
+    implemented: false
+    working: false
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need system to calculate job duration based on services and house size"
+
+  - task: "Invoice Generation API"
+    implemented: false
+    working: false
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need to create invoice models and generation endpoints"
+
+  - task: "PDF Generation Service"
+    implemented: false
+    working: false
+    file: "backend/services/"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need PDF generation capability for invoices"
+
+frontend:
+  - task: "Calendar View Component"
+    implemented: false
+    working: false
+    file: "frontend/src/components/CalendarView.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need drag-and-drop calendar interface for job assignment"
+
+  - task: "Drag and Drop Job Assignment"
+    implemented: false
+    working: false
+    file: "frontend/src/components/JobAssignment.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need React DnD implementation for job assignment to calendars"
+
+  - task: "Invoice Management Interface"
+    implemented: false
+    working: false
+    file: "frontend/src/components/InvoiceManagement.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Need invoice listing, generation, and PDF download interface"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Google Calendar Service Integration"
+    - "Calendar Management API Endpoints"
+    - "Calendar View Component"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Starting implementation of advanced admin features: Google Calendar drag-and-drop job assignment and invoicing system. Will implement backend APIs first, then frontend components."
