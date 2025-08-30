@@ -171,7 +171,14 @@ const AdminDashboard = () => {
     try {
       await axios.post(`${API}/admin/cleaners`, newCleaner);
       toast.success('Cleaner created successfully');
-      setNewCleaner({ email: '', first_name: '', last_name: '', phone: '' });
+      setNewCleaner({ 
+        email: '', 
+        first_name: '', 
+        last_name: '', 
+        phone: '',
+        google_calendar_credentials: null,
+        calendar_integration_enabled: false
+      });
       loadCleaners();
     } catch (error) {
       toast.error('Failed to create cleaner');
