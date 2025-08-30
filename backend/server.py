@@ -1019,6 +1019,289 @@ async def export_bookings(admin_user: User = Depends(get_admin_user)):
     
     return {"data": csv_data, "filename": f"bookings_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
 
+# Google Calendar Integration Endpoints
+@api_router.post("/admin/cleaners/{cleaner_id}/calendar/setup")
+async def setup_cleaner_calendar(
+    cleaner_id: str, 
+    calendar_data: dict, 
+    admin_user: User = Depends(get_admin_user)
+):
+    """Setup Google Calendar integration for a cleaner"""
+    try:
+        credentials = calendar_data.get('credentials')
+        calendar_id = calendar_data.get('calendar_id', 'primary')
+        
+        if not credentials:
+            raise HTTPException(status_code=400, detail="Google Calendar credentials required")
+        
+        # Validate credentials
+        if not calendar_service.validate_credentials(credentials):
+            raise HTTPException(status_code=400, detail="Invalid Google Calendar credentials")
+        
+        # Update cleaner with calendar info
+        result = await db.cleaners.update_one(
+            {"id": cleaner_id},
+            {"$set": {
+                "google_calendar_credentials": credentials,
+                "google_calendar_id": calendar_id,
+                "calendar_integration_enabled": True
+            }}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Cleaner not found")
+        
+        return {"message": "Calendar integration setup successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to setup calendar: {str(e)}")
+
+@api_router.get("/admin/cleaners/{cleaner_id}/calendar/events")
+async def get_cleaner_calendar_events(
+    cleaner_id: str,
+    days_ahead: int = 7,
+    admin_user: User = Depends(get_admin_user)
+):
+    """Get calendar events for a cleaner"""
+    try:
+        # Get cleaner info
+        cleaner = await db.cleaners.find_one({"id": cleaner_id})
+        if not cleaner:
+            raise HTTPException(status_code=404, detail="Cleaner not found")
+        
+        if not cleaner.get('calendar_integration_enabled'):
+            return {"events": [], "message": "Calendar integration not enabled"}
+        
+        credentials = cleaner.get('google_calendar_credentials')
+        calendar_id = cleaner.get('google_calendar_id', 'primary')
+        
+        if not credentials:
+            return {"events": [], "message": "No calendar credentials found"}
+        
+        # Get calendar service
+        service = calendar_service.create_service_from_credentials_dict(credentials)
+        if not service:
+            return {"events": [], "message": "Failed to connect to calendar"}
+        
+        # Get events
+        events = calendar_service.get_calendar_events(service, calendar_id, days_ahead)
+        
+        return {
+            "events": events,
+            "cleaner_id": cleaner_id,
+            "calendar_id": calendar_id,
+            "days_ahead": days_ahead
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get calendar events: {str(e)}")
+
+@api_router.get("/admin/cleaners/{cleaner_id}/availability")
+async def check_cleaner_availability(
+    cleaner_id: str,
+    date: str,
+    start_time: str,
+    end_time: str,
+    admin_user: User = Depends(get_admin_user)
+):
+    """Check if a cleaner is available for a specific time slot"""
+    try:
+        # Get cleaner info
+        cleaner = await db.cleaners.find_one({"id": cleaner_id})
+        if not cleaner:
+            raise HTTPException(status_code=404, detail="Cleaner not found")
+        
+        if not cleaner.get('calendar_integration_enabled'):
+            return {"available": True, "message": "Calendar integration not enabled - assuming available"}
+        
+        credentials = cleaner.get('google_calendar_credentials')
+        calendar_id = cleaner.get('google_calendar_id', 'primary')
+        
+        if not credentials:
+            return {"available": True, "message": "No calendar credentials - assuming available"}
+        
+        # Create datetime objects
+        job_date = datetime.fromisoformat(date)
+        start_datetime = datetime.combine(job_date.date(), datetime.strptime(start_time, "%H:%M").time())
+        end_datetime = datetime.combine(job_date.date(), datetime.strptime(end_time, "%H:%M").time())
+        
+        # Get calendar service
+        service = calendar_service.create_service_from_credentials_dict(credentials)
+        if not service:
+            return {"available": True, "message": "Failed to connect to calendar - assuming available"}
+        
+        # Check availability
+        is_available = calendar_service.check_availability(service, calendar_id, start_datetime, end_datetime)
+        
+        return {
+            "available": is_available,
+            "cleaner_id": cleaner_id,
+            "date": date,
+            "time_slot": f"{start_time}-{end_time}",
+            "message": "Available" if is_available else "Busy during this time"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check availability: {str(e)}")
+
+@api_router.get("/admin/cleaners/availability-summary")
+async def get_all_cleaners_availability(
+    date: str,
+    admin_user: User = Depends(get_admin_user)
+):
+    """Get availability summary for all cleaners on a specific date"""
+    try:
+        # Get all active cleaners
+        cleaners = await db.cleaners.find({"is_active": True}).to_list(100)
+        
+        availability_summary = []
+        job_date = datetime.fromisoformat(date)
+        
+        # Standard time slots (8 AM to 6 PM in 2-hour slots)
+        time_slots = [
+            ("08:00", "10:00"),
+            ("10:00", "12:00"),
+            ("12:00", "14:00"),
+            ("14:00", "16:00"),
+            ("16:00", "18:00")
+        ]
+        
+        for cleaner in cleaners:
+            cleaner_availability = {
+                "cleaner_id": cleaner["id"],
+                "cleaner_name": f"{cleaner['first_name']} {cleaner['last_name']}",
+                "calendar_enabled": cleaner.get('calendar_integration_enabled', False),
+                "slots": {}
+            }
+            
+            if cleaner.get('calendar_integration_enabled') and cleaner.get('google_calendar_credentials'):
+                credentials = cleaner['google_calendar_credentials']
+                calendar_id = cleaner.get('google_calendar_id', 'primary')
+                
+                # Get calendar service
+                service = calendar_service.create_service_from_credentials_dict(credentials)
+                
+                if service:
+                    # Get free time slots
+                    free_slots = calendar_service.get_free_time_slots(
+                        service, 
+                        calendar_id, 
+                        job_date.date()
+                    )
+                    
+                    # Map to our standard slots
+                    for start_time, end_time in time_slots:
+                        slot_available = any(
+                            slot['start_time'] == start_time and slot['end_time'] == end_time
+                            for slot in free_slots
+                        )
+                        cleaner_availability["slots"][f"{start_time}-{end_time}"] = slot_available
+                else:
+                    # Calendar service failed, assume available
+                    for start_time, end_time in time_slots:
+                        cleaner_availability["slots"][f"{start_time}-{end_time}"] = True
+            else:
+                # No calendar integration, assume available
+                for start_time, end_time in time_slots:
+                    cleaner_availability["slots"][f"{start_time}-{end_time}"] = True
+            
+            availability_summary.append(cleaner_availability)
+        
+        return {
+            "date": date,
+            "cleaners": availability_summary,
+            "time_slots": [f"{start}-{end}" for start, end in time_slots]
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get availability summary: {str(e)}")
+
+@api_router.post("/admin/bookings/{booking_id}/create-calendar-event")
+async def create_booking_calendar_event(
+    booking_id: str,
+    admin_user: User = Depends(get_admin_user)
+):
+    """Create calendar event when assigning job to cleaner"""
+    try:
+        # Get booking details
+        booking = await db.bookings.find_one({"id": booking_id})
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        if not booking.get('cleaner_id'):
+            raise HTTPException(status_code=400, detail="No cleaner assigned to this booking")
+        
+        # Get cleaner info
+        cleaner = await db.cleaners.find_one({"id": booking['cleaner_id']})
+        if not cleaner:
+            raise HTTPException(status_code=404, detail="Assigned cleaner not found")
+        
+        if not cleaner.get('calendar_integration_enabled'):
+            return {"message": "Calendar integration not enabled for this cleaner"}
+        
+        credentials = cleaner.get('google_calendar_credentials')
+        calendar_id = cleaner.get('google_calendar_id', 'primary')
+        
+        if not credentials:
+            return {"message": "No calendar credentials for this cleaner"}
+        
+        # Get customer info
+        customer = await db.customers.find_one({"id": booking['customer_id']})
+        
+        # Prepare job data for calendar event
+        start_time_str = booking['time_slot'].split('-')[0]
+        end_time_str = booking['time_slot'].split('-')[1]
+        
+        job_date = datetime.fromisoformat(booking['booking_date'])
+        start_datetime = datetime.combine(
+            job_date.date(), 
+            datetime.strptime(start_time_str, "%H:%M").time()
+        )
+        end_datetime = datetime.combine(
+            job_date.date(), 
+            datetime.strptime(end_time_str, "%H:%M").time()
+        )
+        
+        job_data = {
+            'job_id': booking['id'],
+            'customer_name': f"{customer['first_name']} {customer['last_name']}" if customer else "Customer",
+            'address': customer.get('address', 'N/A') if customer else 'N/A',
+            'services': f"{booking['house_size']} - {booking['frequency']}",
+            'amount': booking['total_amount'],
+            'instructions': booking.get('special_instructions', 'None'),
+            'start_time': start_datetime.isoformat(),
+            'end_time': end_datetime.isoformat()
+        }
+        
+        # Get calendar service and create event
+        service = calendar_service.create_service_from_credentials_dict(credentials)
+        if not service:
+            raise HTTPException(status_code=500, detail="Failed to connect to calendar service")
+        
+        event_id = calendar_service.create_job_event(service, calendar_id, job_data)
+        
+        if event_id:
+            # Update booking with calendar event ID
+            await db.bookings.update_one(
+                {"id": booking_id},
+                {"$set": {"calendar_event_id": event_id}}
+            )
+            
+            return {"message": "Calendar event created successfully", "event_id": event_id}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create calendar event")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create calendar event: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
