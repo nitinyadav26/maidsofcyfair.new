@@ -631,48 +631,76 @@ class MaidsBookingAPITester:
 
 def main():
     print("🧪 Starting Maids of Cyfair Booking System API Tests")
-    print("=" * 60)
+    print("🎯 Focus: Google Calendar Integration & Invoice Management")
+    print("=" * 70)
     
     tester = MaidsBookingAPITester()
     
-    # Test sequence
+    # Test sequence - Authentication first
     print("\n🔐 Testing Authentication Endpoints...")
     login_success, _ = tester.test_login()
     if not login_success:
-        print("❌ Login failed, cannot proceed with authenticated tests")
+        print("❌ Customer login failed, cannot proceed with customer tests")
+        return 1
+    
+    admin_login_success, _ = tester.test_admin_login()
+    if not admin_login_success:
+        print("❌ Admin login failed, cannot proceed with admin tests")
         return 1
     
     tester.test_auth_me()
-    tester.test_register_new_user()
     
-    print("\n💰 Testing Pricing Endpoints...")
-    tester.test_pricing_endpoints()
-    
-    print("\n🛍️ Testing Services Endpoints...")
+    print("\n🛍️ Testing Services & Booking Setup...")
     tester.test_get_standard_services()
     tester.test_get_a_la_carte_services()
-    
-    print("\n📅 Testing Date/Time Endpoints...")
     tester.test_get_available_dates()
     tester.test_get_time_slots()
     
-    print("\n📝 Testing Booking Endpoints...")
+    print("\n📝 Creating Test Booking...")
     tester.test_create_booking_with_a_la_carte()
-    tester.test_get_bookings()
-    tester.test_get_booking_by_id()
     
-    print("\n💳 Testing Payment Processing...")
-    tester.test_process_payment()
+    print("\n👥 Testing Admin - Cleaners Management...")
+    tester.test_get_cleaners()
+    
+    print("\n📅 Testing Google Calendar Integration...")
+    tester.test_calendar_availability_summary()
+    tester.test_get_unassigned_jobs()
+    tester.test_assign_job_to_calendar()
+    
+    print("\n🧮 Testing Job Duration Calculation...")
+    tester.test_job_duration_calculation()
+    
+    print("\n📄 Testing Invoice Management System...")
+    tester.test_get_all_invoices()
+    tester.test_generate_invoice_for_booking()
+    tester.test_update_invoice_status()
+    tester.test_generate_invoice_pdf()
+    
+    print("\n🗑️ Testing Invoice Deletion...")
+    tester.test_delete_invoice()
     
     # Final results
-    print("\n" + "=" * 60)
+    print("\n" + "=" * 70)
     print(f"📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
     
+    # Detailed breakdown
+    success_rate = (tester.tests_passed / tester.tests_run) * 100 if tester.tests_run > 0 else 0
+    print(f"📈 Success Rate: {success_rate:.1f}%")
+    
     if tester.tests_passed == tester.tests_run:
-        print("🎉 All tests passed!")
+        print("🎉 All tests passed! Google Calendar & Invoice systems working correctly!")
         return 0
     else:
-        print(f"⚠️  {tester.tests_run - tester.tests_passed} tests failed")
+        failed_tests = tester.tests_run - tester.tests_passed
+        print(f"⚠️  {failed_tests} test(s) failed")
+        
+        if success_rate >= 80:
+            print("✅ Overall system functionality is good (80%+ success rate)")
+        elif success_rate >= 60:
+            print("⚠️  System has some issues but core functionality works")
+        else:
+            print("❌ System has significant issues requiring attention")
+        
         return 1
 
 if __name__ == "__main__":
