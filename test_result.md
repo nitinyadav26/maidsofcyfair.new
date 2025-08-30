@@ -167,40 +167,40 @@ backend:
 
 frontend:
   - task: "Calendar View Component"
-    implemented: false
-    working: false
-    file: "frontend/src/components/CalendarView.js"
+    implemented: true
+    working: "unknown"
+    file: "frontend/src/components/CalendarJobAssignment.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need drag-and-drop calendar interface for job assignment"
+        comment: "Complete drag-and-drop calendar interface implemented with @dnd-kit library"
 
   - task: "Drag and Drop Job Assignment"
-    implemented: false
-    working: false
-    file: "frontend/src/components/JobAssignment.js"
+    implemented: true
+    working: "unknown"
+    file: "frontend/src/components/CalendarJobAssignment.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need React DnD implementation for job assignment to calendars"
+        comment: "Full drag-and-drop functionality with job assignment and calendar integration"
 
   - task: "Invoice Management Interface"
-    implemented: false
-    working: false
+    implemented: true
+    working: "unknown"
     file: "frontend/src/components/InvoiceManagement.js"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need invoice listing, generation, and PDF download interface"
+        comment: "Complete invoice management UI with generation, listing, and PDF download"
 
 metadata:
   created_by: "main_agent"
