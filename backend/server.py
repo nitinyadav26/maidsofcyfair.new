@@ -13,6 +13,7 @@ from datetime import datetime, date, time, timezone, timedelta
 from enum import Enum
 import jwt
 import bcrypt
+from services.google_calendar_service import GoogleCalendarService
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
