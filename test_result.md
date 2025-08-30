@@ -115,55 +115,55 @@ backend:
     status_history:
       - working: "unknown"
         agent: "main"
-        comment: "Service exists but needs enhancement for calendar view and job assignment"
+        comment: "Service exists and enhanced with availability checking and job assignment capabilities"
 
   - task: "Calendar Management API Endpoints"
-    implemented: false
-    working: false
+    implemented: true
+    working: "unknown"
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need to create endpoints for calendar view, job assignment, and time blocking"
+        comment: "Implemented calendar availability summary, job assignment, and unassigned jobs endpoints"
 
   - task: "Job Duration Calculation System"
-    implemented: false
-    working: false
+    implemented: true
+    working: "unknown"
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need system to calculate job duration based on services and house size"
+        comment: "Implemented calculate_job_duration function based on house size and services"
 
   - task: "Invoice Generation API"
-    implemented: false
-    working: false
+    implemented: true
+    working: "unknown"
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need to create invoice models and generation endpoints"
+        comment: "Complete invoice management API with generation, status updates, and PDF endpoints"
 
   - task: "PDF Generation Service"
-    implemented: false
-    working: false
-    file: "backend/services/"
+    implemented: true
+    working: "unknown"
+    file: "backend/server.py"
     stuck_count: 0
     priority: "medium"
     needs_retesting: true
     status_history:
-      - working: false
+      - working: "unknown"
         agent: "main"
-        comment: "Need PDF generation capability for invoices"
+        comment: "PDF generation endpoint created with reportlab and weasyprint dependencies"
 
 frontend:
   - task: "Calendar View Component"
