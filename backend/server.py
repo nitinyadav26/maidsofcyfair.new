@@ -212,6 +212,10 @@ class Cleaner(BaseModel):
     is_active: bool = True
     rating: float = 0.0
     total_jobs: int = 0
+    # Google Calendar Integration
+    google_calendar_credentials: Optional[Dict[str, Any]] = None
+    google_calendar_id: Optional[str] = "primary"
+    calendar_integration_enabled: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class CleanerCreate(BaseModel):
@@ -219,6 +223,9 @@ class CleanerCreate(BaseModel):
     first_name: str
     last_name: str
     phone: str
+    # Optional Google Calendar setup
+    google_calendar_credentials: Optional[Dict[str, Any]] = None
+    google_calendar_id: Optional[str] = "primary"
 
 class FAQ(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
