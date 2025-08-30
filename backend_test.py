@@ -21,13 +21,15 @@ class MaidsBookingAPITester:
         self.invoice_id = None
         self.completed_booking_id = None
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, params=None, auth_required=False):
+    def run_test(self, name, method, endpoint, expected_status, data=None, params=None, auth_required=False, admin_auth=False):
         """Run a single API test"""
         url = f"{self.api_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
         
-        if auth_required and self.token:
-            headers['Authorization'] = f'Bearer {self.token}'
+        if auth_required:
+            token = self.admin_token if admin_auth else self.token
+            if token:
+                headers['Authorization'] = f'Bearer {token}'
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
@@ -40,6 +42,8 @@ class MaidsBookingAPITester:
                 response = requests.post(url, json=data, headers=headers)
             elif method == 'PATCH':
                 response = requests.patch(url, json=data, headers=headers)
+            elif method == 'DELETE':
+                response = requests.delete(url, headers=headers)
 
             success = response.status_code == expected_status
             if success:
