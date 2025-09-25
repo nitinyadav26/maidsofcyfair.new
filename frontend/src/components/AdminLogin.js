@@ -115,7 +115,7 @@ const AdminLogin = () => {
                 <h4 className="text-sm font-medium text-red-800 mb-2">Admin Demo Credentials</h4>
                 <div className="text-sm text-red-700">
                   <p><strong>Email:</strong> admin@maids.com</p>
-                  <p><strong>Password:</strong> admin@maids@1234</p>
+                  <p><strong>Password:</strong> admin123</p>
                 </div>
                 <Button
                   type="button"

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, CreditCard, Home, Repeat, Check, ArrowRight, ArrowLeft, Plus, Minus } from 'lucide-react';
+import { Calendar, Clock, MapPin, CreditCard, Home, Repeat, Check, ArrowRight, ArrowLeft, Plus, Minus , BedDouble } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -10,22 +10,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { toast } from 'sonner';
 import axios from 'axios';
 
+
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const BookingFlow = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // Data states
-  const [services, setServices] = useState([]);
-  const [aLaCarteServices, setALaCarteServices] = useState([]);
+  const [allServices, setAllServices] = useState([]);
   const [houseSize, setHouseSize] = useState('');
   const [frequency, setFrequency] = useState('');
   const [basePrice, setBasePrice] = useState(0);
   const [selectedServices, setSelectedServices] = useState([]);
   const [aLaCarteCart, setALaCarteCart] = useState([]);
+  const [rooms, setRooms] = useState({
+    masterBedroom: false,
+    masterBathroom: false,
+    otherBedrooms: 0,
+    otherFullBathrooms: 0,
+    halfBathrooms: 0,
+    diningRoom: false,
+    kitchen: false,
+    livingRoom: false,
+    mediaRoom: false,
+    gameRoom: false,
+    office: false
+  });
   const [selectedDate, setSelectedDate] = useState('');
   const [availableDates, setAvailableDates] = useState([]);
   const [timeSlots, setTimeSlots] = useState([]);
@@ -42,10 +55,12 @@ const BookingFlow = () => {
   });
   const [specialInstructions, setSpecialInstructions] = useState('');
 
+  const services = allServices.filter(s => !s.is_a_la_carte);
+  const aLaCarteServices = allServices.filter(s => s.is_a_la_carte);
+
   // Load initial data
   useEffect(() => {
-    loadServices();
-    loadALaCarteServices();
+    loadAllServices();
     loadAvailableDates();
   }, []);
 
@@ -56,22 +71,12 @@ const BookingFlow = () => {
     }
   }, [houseSize, frequency]);
 
-  const loadServices = async () => {
+  const loadAllServices = async () => {
     try {
-      const response = await axios.get(`${API}/services/standard`);
-      setServices(response.data);
+      const response = await axios.get(`${API}/services`);
+      setAllServices(response.data);
     } catch (error) {
       toast.error('Failed to load services');
-      console.error(error);
-    }
-  };
-
-  const loadALaCarteServices = async () => {
-    try {
-      const response = await axios.get(`${API}/services/a-la-carte`);
-      setALaCarteServices(response.data);
-    } catch (error) {
-      toast.error('Failed to load a la carte services');
       console.error(error);
     }
   };
@@ -120,7 +125,7 @@ const BookingFlow = () => {
 
   // Frequency options
   const frequencyOptions = [
-    { value: 'one_time', label: 'One Time Deep Clean / Move Out' },
+    { value: 'one_time', label: 'One Time  Clean / Move Out' },
     { value: 'monthly', label: 'Monthly' },
     { value: 'every_3_weeks', label: 'Every 3 Weeks' },
     { value: 'bi_weekly', label: 'Bi-Weekly' },
@@ -219,6 +224,8 @@ const BookingFlow = () => {
         },
         house_size: houseSize,
         frequency: frequency,
+        base_price: basePrice,
+        rooms: rooms,
         services: selectedServices.map(item => ({
           service_id: item.serviceId,
           quantity: item.quantity
@@ -256,7 +263,7 @@ const BookingFlow = () => {
   // Step validation
   const canProceedToStep = (step) => {
     switch (step) {
-      case 2: return houseSize && frequency && selectedServices.length > 0;
+      case 2: return houseSize && frequency;
       case 3: return true; // A la carte is optional
       case 4: return selectedDate !== '';
       case 5: return selectedTimeSlot !== '';
@@ -267,12 +274,14 @@ const BookingFlow = () => {
 
   // Step indicators
   const steps = [
-    { number: 1, title: 'Service & Size', icon: Home },
-    { number: 2, title: 'A La Carte', icon: Plus },
-    { number: 3, title: 'Choose Date', icon: Calendar },
-    { number: 4, title: 'Pick Time', icon: Clock },
-    { number: 5, title: 'Your Details', icon: MapPin },
-    { number: 6, title: 'Confirm & Pay', icon: CreditCard }
+    { number: 0, title: 'Service & Size', icon: Home },
+    { number: 1, title: 'Rooms & Areas', icon: Home },
+    { number: 2, title: 'A La Carte', icon: BedDouble },
+    { number: 3, title: 'Choose Date', icon: Plus },
+    { number: 4, title: 'Pick Time', icon: Calendar },
+    { number: 5, title: 'Your Details', icon: Clock },
+    { number: 6, title: 'Confirm & Pay', icon: MapPin },
+
   ];
 
   return (
@@ -290,7 +299,7 @@ const BookingFlow = () => {
 
         {/* Step Indicator */}
         <div className="flex justify-center mb-8">
-          <div className="step-indicator flex space-x-4 p-2">
+          <div className="step-indicator flex space-x-6 p-2">
             {steps.map((step) => {
               const Icon = step.icon;
               const isActive = currentStep === step.number;
@@ -320,7 +329,7 @@ const BookingFlow = () => {
         <Card className="booking-card slide-up">
           <CardContent className="p-8">
             {/* Step 1: Service & House Size Selection */}
-            {currentStep === 1 && (
+            {currentStep === 0 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
@@ -384,7 +393,7 @@ const BookingFlow = () => {
                   {/* Standard Services Selection */}
                   <div>
                     <label className="block text-lg font-semibold text-gray-800 mb-4">
-                      Select Cleaning Services
+                    
                     </label>
                     <div className="grid md:grid-cols-2 gap-4">
                       {services.map((service) => {
@@ -414,14 +423,165 @@ const BookingFlow = () => {
               </div>
             )}
 
+            {/* Step 1: Rooms & Areas */}
+            {currentStep === 1 && (
+              <div>
+                <CardHeader className="text-center pb-6">
+                  <CardTitle className="text-2xl font-bold text-gray-800">
+                    Select Rooms & Areas
+                  </CardTitle>
+                  <p className="text-gray-600">Choose the rooms and areas you’d like us to clean. If an area isn’t selected, it will not be cleaned.</p>
+                </CardHeader>
+
+                <div className="grid lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 space-y-6">
+                    <h3 className="text-lg font-semibold text-gray-800">Bedrooms & Bathrooms</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.masterBedroom}
+                          onChange={(e) => setRooms({ ...rooms, masterBedroom: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Master Bedroom</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.masterBathroom}
+                          onChange={(e) => setRooms({ ...rooms, masterBathroom: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Master Bathroom</span>
+                      </label>
+                      <div className="bg-white p-4 rounded-lg border">
+                        <div className="mb-2 text-gray-800">How many other bedrooms?</div>
+                        <Select
+                          value={String(rooms.otherBedrooms)}
+                          onValueChange={(v) => setRooms({ ...rooms, otherBedrooms: Number(v) })}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select count" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0,1,2,3,4,5,6].map((n) => (
+                              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border">
+                        <div className="mb-2 text-gray-800">How many other full bathrooms?</div>
+                        <Select
+                          value={String(rooms.otherFullBathrooms)}
+                          onValueChange={(v) => setRooms({ ...rooms, otherFullBathrooms: Number(v) })}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select count" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0,1,2,3,4,5,6].map((n) => (
+                              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border">
+                        <div className="mb-2 text-gray-800">How many half bathrooms?</div>
+                        <Select
+                          value={String(rooms.halfBathrooms)}
+                          onValueChange={(v) => setRooms({ ...rooms, halfBathrooms: Number(v) })}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select count" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[0,1,2,3,4,5,6].map((n) => (
+                              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <h3 className="text-lg font-semibold text-gray-800">Common Areas</h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.diningRoom}
+                          onChange={(e) => setRooms({ ...rooms, diningRoom: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Dining Room</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.kitchen}
+                          onChange={(e) => setRooms({ ...rooms, kitchen: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Kitchen</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.livingRoom}
+                          onChange={(e) => setRooms({ ...rooms, livingRoom: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Living Room</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.mediaRoom}
+                          onChange={(e) => setRooms({ ...rooms, mediaRoom: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Media Room</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.gameRoom}
+                          onChange={(e) => setRooms({ ...rooms, gameRoom: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Game Room</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-white p-4 rounded-lg border">
+                        <input
+                          type="checkbox"
+                          checked={rooms.office}
+                          onChange={(e) => setRooms({ ...rooms, office: e.target.checked })}
+                        />
+                        <span className="text-gray-800">Clean Office</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Summary</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span>Base Service:</span><span>${basePrice.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>Add-ons:</span><span>${getALaCarteTotal().toFixed(2)}</span></div>
+                      <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                        <span>Total:</span>
+                        <span className="text-primary">${getTotalAmount().toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+
             {/* Step 2: A La Carte Services */}
             {currentStep === 2 && (
               <div>
                 <CardHeader className="text-center pb-6">
                   <CardTitle className="text-2xl font-bold text-gray-800">
-                    Add A La Carte Services
+                    A La Carte Add-ons
                   </CardTitle>
-                  <p className="text-gray-600">Optional additional services to enhance your cleaning</p>
+                  <p className="text-gray-600">Optional add-ons to customize your clean.</p>
                 </CardHeader>
 
                 <div className="grid lg:grid-cols-3 gap-6">
@@ -521,6 +681,7 @@ const BookingFlow = () => {
               </div>
             )}
 
+            
             {/* Step 3: Choose Date */}
             {currentStep === 3 && (
               <div>
@@ -698,7 +859,7 @@ const BookingFlow = () => {
                       <Textarea
                         value={specialInstructions}
                         onChange={(e) => setSpecialInstructions(e.target.value)}
-                        placeholder="Any special requests or instructions..."
+                        placeholder="Anything else we should know? (Special instructions, pets, gate codes, etc.)"
                         rows={3}
                       />
                     </div>
@@ -824,7 +985,7 @@ const BookingFlow = () => {
               <Button
                 variant="outline"
                 onClick={prevStep}
-                disabled={currentStep === 1}
+                disabled={currentStep === 0}
                 className="btn-hover"
               >
                 <ArrowLeft className="mr-2" size={16} />

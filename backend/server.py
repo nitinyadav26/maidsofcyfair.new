@@ -13,7 +13,7 @@ from datetime import datetime, date, time, timezone, timedelta
 from enum import Enum
 import jwt
 import bcrypt
-from services.google_calendar_service import GoogleCalendarService
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -24,7 +24,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # Google Calendar Service
-calendar_service = GoogleCalendarService()
+calendar_service = 0
 
 # Create the main app without a prefix
 app = FastAPI(title="Maids of Cyfair Booking System")
@@ -157,6 +157,7 @@ class Booking(BaseModel):
     customer_id: str
     house_size: HouseSize
     frequency: ServiceFrequency
+    rooms: Optional[Dict[str, Any]] = None
     services: List[BookingService]
     a_la_carte_services: List[BookingService] = []
     booking_date: str
@@ -306,6 +307,23 @@ def get_base_price(house_size: HouseSize, frequency: ServiceFrequency) -> float:
     multiplier = frequency_multipliers.get(frequency, 1.0)
     
     return base_price * multiplier
+
+def get_dynamic_a_la_carte_price(service: dict, house_size: str) -> float:
+    """Dynamically adjust price for Dust Baseboards based on house size range.
+       For Dust Baseboards, if the upper bound of the range is <=2500, use $20; otherwise use $30.
+    """
+    if service.get("name", "").lower() == "dust baseboards":
+        # e.g., house_size "2000-2500", "2500-3000", or "5000+"
+        if house_size.endswith("+"):
+            return 30.0
+        parts = house_size.split("-")
+        if len(parts) == 2:
+            try:
+                high = int(parts[1])
+                return 20.0 if high <= 2500 else 30.0
+            except ValueError:
+                pass
+    return service.get("a_la_carte_price", 0.0)
 
 def calculate_job_duration(house_size: HouseSize, services: List[BookingService], a_la_carte_services: List[BookingService]) -> int:
     """Calculate estimated job duration in hours"""
@@ -480,8 +498,10 @@ async def create_booking(booking_data: dict, current_user: User = Depends(get_cu
     if booking_data.get('a_la_carte_services'):
         for service_data in booking_data['a_la_carte_services']:
             service = await db.services.find_one({"id": service_data['service_id']})
-            if service and service.get('a_la_carte_price'):
-                a_la_carte_total += service['a_la_carte_price'] * service_data.get('quantity', 1)
+            if service:
+                # Use dynamic pricing for Dust Baseboards based on the booking house size
+                dynamic_price = get_dynamic_a_la_carte_price(service, booking_data['house_size'])
+                a_la_carte_total += dynamic_price * service_data.get('quantity', 1)
     
     # Create booking
     booking = Booking(
@@ -489,6 +509,7 @@ async def create_booking(booking_data: dict, current_user: User = Depends(get_cu
         customer_id=current_user.id,
         house_size=booking_data['house_size'],
         frequency=booking_data['frequency'],
+        rooms=booking_data.get('rooms'),
         services=[BookingService(**service) for service in booking_data['services']],
         a_la_carte_services=[BookingService(**service) for service in booking_data.get('a_la_carte_services', [])],
         booking_date=booking_data['booking_date'],
@@ -1175,44 +1196,20 @@ async def initialize_database():
     services_count = await db.services.count_documents({})
     if services_count == 0:
         default_services = [
-            {
-                "name": "Standard Bathroom Clean",
-                "category": "standard_cleaning",
-                "description": "Complete bathroom cleaning including toilet, shower, sink, and floors",
-                "is_a_la_carte": False,
-                "duration_hours": 1
-            },
-            {
-                "name": "Standard Kitchen Clean",
-                "category": "standard_cleaning", 
-                "description": "Kitchen cleaning including countertops, appliances, and floors",
-                "is_a_la_carte": False,
-                "duration_hours": 1
-            },
-            {
-                "name": "Oven Deep Clean",
-                "category": "a_la_carte",
-                "description": "Deep cleaning of oven interior and exterior",
-                "is_a_la_carte": True,
-                "a_la_carte_price": 25.0,
-                "duration_hours": 1
-            },
-            {
-                "name": "Refrigerator Clean",
-                "category": "a_la_carte",
-                "description": "Interior and exterior refrigerator cleaning",
-                "is_a_la_carte": True,
-                "a_la_carte_price": 20.0,
-                "duration_hours": 1
-            },
-            {
-                "name": "Window Cleaning (Interior)",
-                "category": "a_la_carte",
-                "description": "Interior window cleaning",
-                "is_a_la_carte": True,
-                "a_la_carte_price": 15.0,
-                "duration_hours": 1
-            }
+            {"name": "Blinds", "category": "a_la_carte", "description": "Feather dusting only", "a_la_carte_price": 10.00, "is_a_la_carte": True},
+            {"name": "Inside Kitchen/Bathroom Cabinets ( Move Out Only)", "category": "a_la_carte", "description": "Wiping out using micro fiber", "a_la_carte_price": 80.00, "is_a_la_carte": True},
+            {"name": "Oven Cleaning", "category": "a_la_carte", "description": "Cleaning of 1 Oven.  Double oven is double the cost", "a_la_carte_price": 40.00, "is_a_la_carte": True},
+            {"name": "Dust Baseboards", "category": "a_la_carte", "description": "Feather dust under 2500 sf", "a_la_carte_price": 20.00, "is_a_la_carte": True},
+            {"name": "Dust Baseboards", "category": "a_la_carte", "description": "Feather Dust Over 2500 sf", "a_la_carte_price": 30.00, "is_a_la_carte": True},
+            {"name": "Dust Shutters", "category": "a_la_carte", "description": "Feather dust under 2500 sf", "a_la_carte_price": 40.00, "is_a_la_carte": True},
+            {"name": "Dust Shutters", "category": "a_la_carte", "description": "Feather Dust Over 2500 sf", "a_la_carte_price": 60.00, "is_a_la_carte": True},
+            {"name": "Hand Clean Baseboards", "category": "a_la_carte", "description": "Hand wipe under 2500sf", "a_la_carte_price": 60.00, "is_a_la_carte": True},
+            {"name": "Hand Clean Baseboards", "category": "a_la_carte", "description": "Hand wipe over 2500 sf", "a_la_carte_price": 80.00, "is_a_la_carte": True},
+            {"name": "Inside Refrigerator", "category": "a_la_carte", "description": "Clean inside of Fridge ( not Freezer)", "a_la_carte_price": 45.00, "is_a_la_carte": True},
+            {"name": "Vacuum Couch", "category": "a_la_carte", "description": "Top and Underneath (Includes 1 couch and 1 love seat combo or 1 sectional)", "a_la_carte_price": 15.00, "is_a_la_carte": True},
+            {"name": "Clean Exterior Kitchen/Bathrooms cabinets", "category": "a_la_carte", "description": "Hand wipe all exterior upper and lowers cabinets", "a_la_carte_price": 40.00, "is_a_la_carte": True},
+            {"name": "Dusting High Ceiling Fan", "category": "a_la_carte", "description": "Dusting ceiling fans over 10ft", "a_la_carte_price": 10.00, "is_a_la_carte": True},
+            {"name": "Cleaning of Interior doors/frames", "category": "a_la_carte", "description": "Hand wipe interior door/frames/molding", "a_la_carte_price": 75.00, "is_a_la_carte": True}
         ]
         
         for service_data in default_services:
@@ -1244,4 +1241,4 @@ app.include_router(api_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

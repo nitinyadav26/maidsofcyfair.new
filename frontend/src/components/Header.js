@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogOut, User, Home, Shield } from 'lucide-react';
 import { Button } from './ui/button';
 import { useAuth } from '../contexts/AuthContext';
+import logo from '../assets/logo.png';
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -19,9 +20,7 @@ const Header = () => {
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <Home className="text-white" size={24} />
-            </div>
+            <img src={logo} alt="Maids of Cyfair" className="w-20 h-20" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">Maids of Cyfair</h1>
               <p className="text-sm text-gray-600">Professional Cleaning Services</p>

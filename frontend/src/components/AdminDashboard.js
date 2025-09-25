@@ -18,7 +18,8 @@ import {
   Clock,
   AlertCircle,
   CalendarDays,
-  Receipt
+  Receipt,
+  LogOut
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -31,12 +32,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
 import axios from 'axios';
 import CalendarJobAssignment from './CalendarJobAssignment';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import InvoiceManagement from './InvoiceManagement';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState({});
   const [bookings, setBookings] = useState([]);
@@ -334,6 +339,15 @@ const AdminDashboard = () => {
                 <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
                 <p className="text-sm text-gray-600">Maids of Cyfair Management</p>
               </div>
+            </div>
+            <div>
+              <Button
+                variant="outline"
+                className="btn-hover"
+                onClick={() => { logout(); navigate('/admin/login'); }}
+              >
+                <LogOut className="mr-2" size={16} /> Logout
+              </Button>
             </div>
           </div>
         </div>
