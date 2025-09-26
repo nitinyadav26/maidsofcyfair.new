@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, MapPin, CreditCard, Home, Repeat, Check, ArrowRight, ArrowLeft, Plus, Minus , BedDouble } from 'lucide-react';
+import { Calendar, Clock, MapPin, CreditCard, Home, Repeat, Check, ArrowRight, ArrowLeft, Plus, Minus, BedDouble, Tag, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -14,8 +14,8 @@ import axios from 'axios';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const BookingFlow = () => {
-  const navigate = useNavigate();
+const BookingFlow = ({ isGuest = false }) => {
+  const navigate = useNavigate(); 
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +53,78 @@ const BookingFlow = () => {
     state: '',
     zipCode: ''
   });
+  const [isGuestCheckout, setIsGuestCheckout] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  // Demo booking function
+  const createDemoBooking = async () => {
+    setLoading(true);
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const demoBookingData = {
+        customer: {
+          email: "demo@example.com",
+          first_name: "Demo",
+          last_name: "Customer",
+          phone: "555-0123",
+          address: "123 Demo Street",
+          city: "Houston",
+          state: "TX",
+          zip_code: "77001",
+          is_guest: true
+        },
+        house_size: "medium",
+        frequency: "one_time",
+        base_price: 150.0,
+        rooms: {
+          masterBedroom: true,
+          masterBathroom: true,
+          otherBedrooms: 2,
+          otherFullBathrooms: 1,
+          halfBathrooms: 1,
+          diningRoom: true,
+          kitchen: true,
+          livingRoom: true,
+          mediaRoom: false,
+          gameRoom: false,
+          office: false
+        },
+        services: [
+          {
+            service_id: "standard_cleaning",
+            quantity: 1
+          }
+        ],
+        a_la_carte_services: [
+          {
+            service_id: "deep_cleaning",
+            quantity: 1
+          }
+        ],
+        booking_date: tomorrowStr,
+        time_slot: "9:00 AM - 11:00 AM",
+        special_instructions: "Demo booking for testing purposes",
+        promo_code: null
+      };
+
+      const response = await axios.post(`${API}/bookings/guest`, demoBookingData);
+      
+      // Skip payment processing for demo booking
+      toast.success('Demo booking created successfully!');
+      navigate(`/confirmation/${response.data.id}`);
+    } catch (error) {
+      toast.error('Demo booking failed. Please try again.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const services = allServices.filter(s => !s.is_a_la_carte);
   const aLaCarteServices = allServices.filter(s => s.is_a_la_carte);
@@ -183,7 +254,64 @@ const BookingFlow = () => {
   };
 
   const getTotalAmount = () => {
-    return basePrice + getALaCarteTotal();
+    const subtotal = basePrice + getALaCarteTotal();
+    if (appliedPromo) {
+      const discount = calculateDiscount(subtotal);
+      return Math.max(0, subtotal - discount);
+    }
+    return subtotal;
+  };
+
+  const calculateDiscount = (subtotal) => {
+    if (!appliedPromo) return 0;
+    
+    let discount = 0;
+    if (appliedPromo.discount_type === 'percentage') {
+      discount = (subtotal * appliedPromo.discount_value) / 100;
+    } else {
+      discount = appliedPromo.discount_value;
+    }
+    
+    // Apply maximum discount limit if set
+    if (appliedPromo.maximum_discount_amount && discount > appliedPromo.maximum_discount_amount) {
+      discount = appliedPromo.maximum_discount_amount;
+    }
+    
+    return Math.min(discount, subtotal);
+  };
+
+  const validatePromoCode = async () => {
+    if (!promoCode.trim()) {
+      toast.error('Please enter a promo code');
+      return;
+    }
+
+    setPromoLoading(true);
+    try {
+      const response = await axios.post(`${API}/validate-promo-code`, {
+        code: promoCode.trim().toUpperCase(),
+        subtotal: basePrice + getALaCarteTotal()
+      });
+
+      if (response.data.valid) {
+        setAppliedPromo(response.data.promo);
+        toast.success(`Promo code applied! You saved $${response.data.discount.toFixed(2)}`);
+      } else {
+        toast.error(response.data.message || 'Invalid promo code');
+        setAppliedPromo(null);
+      }
+    } catch (error) {
+      toast.error('Failed to validate promo code');
+      setAppliedPromo(null);
+    } finally {
+      setPromoLoading(false);
+    }
+  };
+
+  const removePromoCode = () => {
+    setAppliedPromo(null);
+    setPromoCode('');
+    toast.success('Promo code removed');
   };
 
   // Step navigation
@@ -220,7 +348,7 @@ const BookingFlow = () => {
           city: customerInfo.city,
           state: customerInfo.state,
           zip_code: customerInfo.zipCode,
-          is_guest: true
+          is_guest: isGuestCheckout
         },
         house_size: houseSize,
         frequency: frequency,
@@ -236,22 +364,16 @@ const BookingFlow = () => {
         })),
         booking_date: selectedDate,
         time_slot: selectedTimeSlot,
-        special_instructions: specialInstructions
+        special_instructions: specialInstructions,
+        promo_code: appliedPromo?.code || null
       };
 
-      const response = await axios.post(`${API}/bookings`, bookingData);
+      const endpoint = isGuestCheckout ? `${API}/bookings/guest` : `${API}/bookings`;
+      const response = await axios.post(endpoint, bookingData);
       
-      // Process mock payment
-      const paymentResponse = await axios.post(`${API}/process-payment/${response.data.id}`, {
-        amount: getTotalAmount(),
-        payment_method: 'mock_card'
-      });
-
-      if (paymentResponse.data.success) {
-        navigate(`/confirmation/${response.data.id}`);
-      } else {
-        toast.error('Payment failed. Please try again.');
-      }
+      // Skip payment processing for now - just confirm the booking
+      toast.success('Booking confirmed successfully!');
+      navigate(`/confirmation/${response.data.id}`);
     } catch (error) {
       toast.error('Booking failed. Please try again.');
       console.error(error);
@@ -336,6 +458,19 @@ const BookingFlow = () => {
                     Select Service Type & House Size
                   </CardTitle>
                   <p className="text-gray-600">Choose your cleaning service and home size for pricing</p>
+                  
+                  {/* Demo Booking Button */}
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 className="font-semibold text-yellow-800 mb-2">Quick Demo</h4>
+                    <p className="text-sm text-yellow-700 mb-3">Want to see how the booking system works? Create a demo booking!</p>
+                    <Button 
+                      onClick={createDemoBooking}
+                      disabled={loading}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                    >
+                      {loading ? 'Creating Demo...' : 'Create Demo Booking'}
+                    </Button>
+                  </div>
                 </CardHeader>
 
                 <div className="space-y-6">
@@ -772,6 +907,43 @@ const BookingFlow = () => {
                   <p className="text-gray-600">We need this to confirm your booking</p>
                 </CardHeader>
 
+                {/* Guest Checkout Option */}
+                <div className="mb-6">
+                  <Card className="border-2 border-dashed border-gray-300">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            id="guestCheckout"
+                            checked={isGuestCheckout}
+                            onChange={(e) => setIsGuestCheckout(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="guestCheckout" className="text-sm font-medium text-gray-700">
+                            Continue as Guest (No account required)
+                          </label>
+                        </div>
+                        <Badge variant={isGuestCheckout ? "default" : "secondary"}>
+                          {isGuestCheckout ? "Guest Checkout" : "Account Required"}
+                        </Badge>
+                      </div>
+                      {isGuestCheckout && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          You can create an account later to manage your bookings
+                        </p>
+                      )}
+                      {!isGuestCheckout && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          <a href="/login" className="text-blue-600 hover:text-blue-800 underline">
+                            Login to your account
+                          </a> to manage your bookings and view history
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
@@ -875,7 +1047,7 @@ const BookingFlow = () => {
                   <CardTitle className="text-2xl font-bold text-gray-800">
                     Confirm Your Booking
                   </CardTitle>
-                  <p className="text-gray-600">Review your details before payment</p>
+                  <p className="text-gray-600">Review your details and confirm your booking</p>
                 </CardHeader>
 
                 <div className="space-y-6">
@@ -923,6 +1095,12 @@ const BookingFlow = () => {
                                 <span>${getALaCarteTotal().toFixed(2)}</span>
                               </div>
                             )}
+                            {appliedPromo && (
+                              <div className="flex justify-between text-green-600">
+                                <span>Discount ({appliedPromo.code}):</span>
+                                <span>-${calculateDiscount(basePrice + getALaCarteTotal()).toFixed(2)}</span>
+                              </div>
+                            )}
                             <div className="flex justify-between font-semibold text-lg border-t pt-2">
                               <span>Total Amount:</span>
                               <span className="text-primary">${getTotalAmount().toFixed(2)}</span>
@@ -959,19 +1137,83 @@ const BookingFlow = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Mock Payment */}
+                  {/* Promo Code Section */}
                   <Card className="border border-gray-200">
                     <CardHeader>
-                      <CardTitle className="text-lg">Payment Information</CardTitle>
+                      <CardTitle className="text-lg flex items-center">
+                        <Tag className="mr-2" size={20} />
+                        Promo Code
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-600 mb-4">
-                        This is a demo payment system. Click "Complete Booking" to simulate payment processing.
+                      {!appliedPromo ? (
+                        <div className="space-y-4">
+                          <div className="flex space-x-2">
+                            <Input
+                              placeholder="Enter promo code"
+                              value={promoCode}
+                              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                              className="flex-1"
+                            />
+                            <Button
+                              onClick={validatePromoCode}
+                              disabled={promoLoading || !promoCode.trim()}
+                              variant="outline"
+                            >
+                              {promoLoading ? 'Validating...' : 'Apply'}
+                            </Button>
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            Enter a valid promo code to get a discount on your booking.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center">
+                              <Check className="mr-2 text-green-600" size={20} />
+                              <div>
+                                <div className="font-semibold text-green-800">
+                                  {appliedPromo.code} Applied!
+                                </div>
+                                <div className="text-sm text-green-600">
+                                  {appliedPromo.discount_type === 'percentage' 
+                                    ? `${appliedPromo.discount_value}% off`
+                                    : `$${appliedPromo.discount_value} off`
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={removePromoCode}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="mr-1" size={14} />
+                              Remove
+                            </Button>
+                          </div>
+                          {appliedPromo.description && (
+                            <p className="text-sm text-gray-600">{appliedPromo.description}</p>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Booking Confirmation */}
+                  <Card className="border border-green-200 bg-green-50">
+                    <CardHeader>
+                      <CardTitle className="text-lg text-green-800">Ready to Confirm</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-green-700 mb-4">
+                        Your booking is ready to be confirmed. Click "Complete Booking" to finalize your appointment.
                       </p>
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <p className="text-yellow-800 text-sm">
-                          <strong>Demo Mode:</strong> No actual payment will be processed. 
-                          This booking will be created for demonstration purposes.
+                      <div className="bg-white border border-green-200 rounded-lg p-4">
+                        <p className="text-green-800 text-sm">
+                          <strong>Note:</strong> Payment will be handled separately. Your booking will be confirmed immediately.
                         </p>
                       </div>
                     </CardContent>
@@ -1010,12 +1252,12 @@ const BookingFlow = () => {
                   {loading ? (
                     <>
                       <div className="loading-spinner mr-2" />
-                      Processing...
+                      Confirming...
                     </>
                   ) : (
                     <>
-                      Complete Booking
-                      <CreditCard className="ml-2" size={16} />
+                      Confirm Booking
+                      <Check className="ml-2" size={16} />
                     </>
                   )}
                 </Button>

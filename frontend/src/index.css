@@ -84,3 +84,21 @@ code {
     @apply bg-background text-foreground;
     }
 }
+
+/* Login Background Styles */
+.login-background {
+  background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), 
+              url('https://res.cloudinary.com/perryhomes/image/upload/c_limit,w_3840/f_auto/q_auto/v1/PerryHomes/Texas/Houston/Bridgeland/Gateway_Public-Art-01?_a=BAVAfVDW0'),
+              url('https://res.cloudinary.com/perryhomes/image/upload/c_limit,w_3840/f_auto/q_auto/v1/PerryHomes/Texas/Houston/Bridgeland/Gateway_Public-Art-01?_a=BAVAfVDW0');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Fallback gradient if image fails to load */
+@supports not (background-attachment: fixed) {
+  .login-background {
+    background: linear-gradient(135deg, #3b82f6, #9333ea);
+  }
+}

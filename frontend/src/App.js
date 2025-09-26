@@ -8,8 +8,14 @@ import Login from "./components/Login";
 import Register from "./components/Register";
 import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
+import CustomerDashboard from "./components/CustomerDashboard";
 import BookingFlow from "./components/BookingFlow";
 import BookingConfirmation from "./components/BookingConfirmation";
+import RescheduleAppointment from "./components/RescheduleAppointment";
+import EditCleaningSelection from "./components/EditCleaningSelection";
+import PaymentInformation from "./components/PaymentInformation";
+import Notes from "./components/Notes";
+import PaymentHistory from "./components/PaymentHistory";
 import { Toaster } from "./components/ui/sonner";
 
 // Auth Context
@@ -66,6 +72,7 @@ function AppContent() {
             <Register />
           </PublicRoute>
         } />
+        <Route path="/guest-booking" element={<BookingFlow isGuest={true} />} />
         
         {/* Admin Routes */}
         <Route path="/admin/login" element={
@@ -82,7 +89,37 @@ function AppContent() {
         {/* Customer Routes */}
         <Route path="/" element={
           <ProtectedRoute>
+            <CustomerDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/book" element={
+          <ProtectedRoute>
             <BookingFlow />
+          </ProtectedRoute>
+        } />
+        <Route path="/reschedule" element={
+          <ProtectedRoute>
+            <RescheduleAppointment />
+          </ProtectedRoute>
+        } />
+        <Route path="/edit-cleaning" element={
+          <ProtectedRoute>
+            <EditCleaningSelection />
+          </ProtectedRoute>
+        } />
+        <Route path="/payment" element={
+          <ProtectedRoute>
+            <PaymentInformation />
+          </ProtectedRoute>
+        } />
+        <Route path="/notes" element={
+          <ProtectedRoute>
+            <Notes />
+          </ProtectedRoute>
+        } />
+        <Route path="/payment-history" element={
+          <ProtectedRoute>
+            <PaymentHistory />
           </ProtectedRoute>
         } />
         <Route path="/confirmation/:bookingId" element={

@@ -1,0 +1,172 @@
+{
+  "summary": {
+    "total_tests": 23,
+    "passed_tests": 22,
+    "failed_tests": 1,
+    "success_rate": 95.65217391304348,
+    "duration": 1.357922077178955
+  },
+  "test_results": [
+    {
+      "test_name": "User Registration",
+      "success": true,
+      "message": "User registered successfully",
+      "timestamp": "2025-09-25T09:40:19.097563",
+      "response_data": null
+    },
+    {
+      "test_name": "User Login",
+      "success": true,
+      "message": "User logged in successfully",
+      "timestamp": "2025-09-25T09:40:19.497594",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Current User",
+      "success": true,
+      "message": "Retrieved user: testuser_1758773418@example.com",
+      "timestamp": "2025-09-25T09:40:19.501159",
+      "response_data": null
+    },
+    {
+      "test_name": "Admin Login",
+      "success": true,
+      "message": "Admin logged in successfully",
+      "timestamp": "2025-09-25T09:40:19.769966",
+      "response_data": null
+    },
+    {
+      "test_name": "Get All Services",
+      "success": true,
+      "message": "Retrieved 16 services",
+      "timestamp": "2025-09-25T09:40:19.773812",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Standard Services",
+      "success": true,
+      "message": "Retrieved 1 standard services",
+      "timestamp": "2025-09-25T09:40:19.775914",
+      "response_data": null
+    },
+    {
+      "test_name": "Get A-La-Carte Services",
+      "success": true,
+      "message": "Retrieved 15 a-la-carte services",
+      "timestamp": "2025-09-25T09:40:19.777769",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Pricing",
+      "success": true,
+      "message": "Pricing: $180.0",
+      "timestamp": "2025-09-25T09:40:19.778907",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Available Dates",
+      "success": true,
+      "message": "Retrieved 30 available dates",
+      "timestamp": "2025-09-25T09:40:19.782281",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Time Slots",
+      "success": true,
+      "message": "Retrieved 4 time slots for 2025-09-26",
+      "timestamp": "2025-09-25T09:40:19.784664",
+      "response_data": null
+    },
+    {
+      "test_name": "Guest Booking",
+      "success": true,
+      "message": "Created booking d7b87293-1165-4aaf-9589-ee5f38158d20",
+      "timestamp": "2025-09-25T09:40:19.840935",
+      "response_data": null
+    },
+    {
+      "test_name": "User Booking",
+      "success": true,
+      "message": "Created booking ba6566b6-f4d7-47a7-8fa2-a7cc6595a9de",
+      "timestamp": "2025-09-25T09:40:19.844534",
+      "response_data": null
+    },
+    {
+      "test_name": "Get User Bookings",
+      "success": true,
+      "message": "Retrieved 1 bookings",
+      "timestamp": "2025-09-25T09:40:19.880155",
+      "response_data": null
+    },
+    {
+      "test_name": "Validate Promo Code",
+      "success": true,
+      "message": "Validation result: False",
+      "timestamp": "2025-09-25T09:40:19.883972",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Admin Promo Codes",
+      "success": true,
+      "message": "Retrieved 1 promo codes",
+      "timestamp": "2025-09-25T09:40:19.969329",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Admin Stats",
+      "success": true,
+      "message": "Stats: {'total_bookings': 7, 'total_revenue': 1256.0, 'total_cleaners': 3, 'open_tickets': 0}",
+      "timestamp": "2025-09-25T09:40:20.065805",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Admin Bookings",
+      "success": true,
+      "message": "Retrieved 7 bookings",
+      "timestamp": "2025-09-25T09:40:20.068460",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Admin Cleaners",
+      "success": true,
+      "message": "Retrieved 3 cleaners",
+      "timestamp": "2025-09-25T09:40:20.072539",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Weekly Report",
+      "success": true,
+      "message": "Weekly report: {'totalBookings': 3, 'revenue': 480.0, 'cancellations': 0, 'reschedules': 0, 'completionRate': 0.0, 'customerSatisfaction': 95.0, 'avgBookingValue': 160.0}",
+      "timestamp": "2025-09-25T09:40:20.076132",
+      "response_data": null
+    },
+    {
+      "test_name": "Get Monthly Report",
+      "success": true,
+      "message": "Monthly report: {'totalBookings': 3, 'revenue': 480.0, 'cancellations': 0, 'reschedules': 0, 'completionRate': 0.0, 'customerSatisfaction': 95.0, 'avgBookingValue': 160.0}",
+      "timestamp": "2025-09-25T09:40:20.078110",
+      "response_data": null
+    },
+    {
+      "test_name": "Invalid Endpoint",
+      "success": true,
+      "message": "Correctly returned 404",
+      "timestamp": "2025-09-25T09:40:20.079704",
+      "response_data": null
+    },
+    {
+      "test_name": "Unauthorized Access",
+      "success": false,
+      "message": "Unexpected status: 403",
+      "timestamp": "2025-09-25T09:40:20.080871",
+      "response_data": null
+    },
+    {
+      "test_name": "Invalid Booking Data",
+      "success": true,
+      "message": "Correctly rejected invalid data",
+      "timestamp": "2025-09-25T09:40:20.082284",
+      "response_data": null
+    }
+  ]
+}

@@ -122,7 +122,7 @@ const AdminLogin = () => {
                   variant="outline"
                   size="sm"
                   className="mt-2"
-                  onClick={() => setFormData({ email: 'admin@maids.com', password: 'admin@maids@1234' })}
+                  onClick={() => setFormData({ email: 'admin@maids.com', password: 'admin123' })}
                 >
                   Use Admin Credentials
                 </Button>

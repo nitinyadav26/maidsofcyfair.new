@@ -32,9 +32,10 @@ const InvoiceManagement = () => {
   const [completedBookings, setCompletedBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('invoices');
+  const [selectedInvoices, setSelectedInvoices] = useState([]);
 
   useEffect(() => {
     loadInvoices();
@@ -44,7 +45,7 @@ const InvoiceManagement = () => {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API}/admin/invoices${statusFilter ? `?status=${statusFilter}` : ''}`);
+      const response = await axios.get(`${API}/admin/invoices${statusFilter && statusFilter !== 'all' ? `?status=${statusFilter}` : ''}`);
       setInvoices(response.data);
     } catch (error) {
       toast.error('Failed to load invoices');
@@ -90,10 +91,38 @@ const InvoiceManagement = () => {
 
   const downloadInvoicePDF = async (invoiceId) => {
     try {
+      setLoading(true);
       const response = await axios.get(`${API}/admin/invoices/${invoiceId}/pdf`);
-      toast.success('PDF generation ready - ' + response.data.note);
+      
+      if (response.data.pdf_content) {
+        // Convert base64 to blob
+        const byteCharacters = atob(response.data.pdf_content);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = response.data.filename || `invoice_${invoiceId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        toast.success('PDF downloaded successfully!');
+      } else {
+        toast.error('PDF content not found');
+      }
     } catch (error) {
-      toast.error('Failed to generate PDF');
+      console.error('PDF download error:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,6 +136,67 @@ const InvoiceManagement = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Failed to delete invoice');
     }
+  };
+
+  const downloadBulkPDFs = async () => {
+    if (selectedInvoices.length === 0) {
+      toast.error('Please select invoices to download');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      toast.info(`Downloading ${selectedInvoices.length} PDFs...`);
+      
+      for (let i = 0; i < selectedInvoices.length; i++) {
+        const invoiceId = selectedInvoices[i];
+        try {
+          const response = await axios.get(`${API}/admin/invoices/${invoiceId}/pdf`);
+          
+          if (response.data.pdf_content) {
+            // Convert base64 to blob
+            const byteCharacters = atob(response.data.pdf_content);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let j = 0; j < byteCharacters.length; j++) {
+              byteNumbers[j] = byteCharacters.charCodeAt(j);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+            
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = response.data.filename || `invoice_${invoiceId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            // Small delay between downloads
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } catch (error) {
+          console.error(`Failed to download PDF for invoice ${invoiceId}:`, error);
+        }
+      }
+      
+      toast.success(`Downloaded ${selectedInvoices.length} PDFs successfully!`);
+      setSelectedInvoices([]);
+    } catch (error) {
+      console.error('Bulk PDF download error:', error);
+      toast.error('Failed to download PDFs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleInvoiceSelection = (invoiceId) => {
+    setSelectedInvoices(prev => 
+      prev.includes(invoiceId) 
+        ? prev.filter(id => id !== invoiceId)
+        : [...prev, invoiceId]
+    );
   };
 
   const getStatusBadge = (status) => {
@@ -152,7 +242,7 @@ const InvoiceManagement = () => {
   const filteredInvoices = invoices.filter(invoice => {
     const matchesSearch = invoice.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !statusFilter || invoice.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -165,6 +255,25 @@ const InvoiceManagement = () => {
           <p className="text-gray-600">Generate, track, and manage customer invoices</p>
         </div>
         <div className="flex space-x-2">
+          {selectedInvoices.length > 0 && (
+            <Button 
+              onClick={downloadBulkPDFs}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download {selectedInvoices.length} PDFs
+                </>
+              )}
+            </Button>
+          )}
           <Button onClick={loadInvoices} variant="outline">
             <FileText className="w-4 h-4 mr-2" />
             Refresh
@@ -204,7 +313,7 @@ const InvoiceManagement = () => {
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Statuses</SelectItem>
+                    <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="sent">Sent</SelectItem>
                     <SelectItem value="paid">Paid</SelectItem>
@@ -283,6 +392,20 @@ const InvoiceManagement = () => {
                 <table className="w-full">
                   <thead className="border-b">
                     <tr>
+                      <th className="text-left p-4 w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedInvoices(filteredInvoices.map(inv => inv.id));
+                            } else {
+                              setSelectedInvoices([]);
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                      </th>
                       <th className="text-left p-4">Invoice #</th>
                       <th className="text-left p-4">Customer</th>
                       <th className="text-left p-4">Issue Date</th>
@@ -295,6 +418,14 @@ const InvoiceManagement = () => {
                   <tbody>
                     {filteredInvoices.map((invoice) => (
                       <tr key={invoice.id} className="border-b">
+                        <td className="p-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedInvoices.includes(invoice.id)}
+                            onChange={() => toggleInvoiceSelection(invoice.id)}
+                            className="rounded border-gray-300"
+                          />
+                        </td>
                         <td className="p-4">
                           <div className="font-medium">{invoice.invoice_number}</div>
                           <div className="text-sm text-gray-500">#{invoice.id.slice(-8)}</div>
@@ -323,8 +454,13 @@ const InvoiceManagement = () => {
                               size="sm"
                               variant="outline"
                               onClick={() => downloadInvoicePDF(invoice.id)}
+                              disabled={loading}
                             >
-                              <Download className="w-4 h-4" />
+                              {loading ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
                             </Button>
                             
                             {invoice.status === 'draft' && (
@@ -548,9 +684,19 @@ const InvoiceManagement = () => {
                 <Button
                   variant="outline"
                   onClick={() => downloadInvoicePDF(selectedInvoice.id)}
+                  disabled={loading}
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download PDF
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </>
+                  )}
                 </Button>
                 
                 {selectedInvoice.status === 'draft' && (

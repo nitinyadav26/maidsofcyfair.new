@@ -41,8 +41,29 @@
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to track job locations and provide accurate service to customers.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to track job locations and provide accurate service to customers.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take photos of completed work for quality assurance.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to save job completion photos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access for video recording features.</string>
+	
+	<!-- Internet access -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
 	
 	<!-- Permissions -->
 	<key>NSLocationWhenInUseUsageDescription</key>

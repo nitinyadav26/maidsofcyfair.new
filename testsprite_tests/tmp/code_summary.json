@@ -1,0 +1,647 @@
+{
+  "tech_stack": [
+    "Python",
+    "FastAPI", 
+    "React",
+    "Flutter",
+    "MongoDB",
+    "JWT",
+    "Tailwind CSS",
+    "Shadcn UI",
+    "Google Calendar API",
+    "bcrypt",
+    "Motor (Async MongoDB)",
+    "Pydantic",
+    "Axios",
+    "React Router",
+    "Dio (Flutter HTTP)"
+  ],
+  "features": [
+    {
+      "name": "Authentication System",
+      "description": "JWT-based authentication system with user registration, login, and role-based access control (Customer, Admin, Cleaner)",
+      "files": [
+        "backend/server.py",
+        "frontend/src/components/Login.js",
+        "frontend/src/components/Register.js",
+        "frontend/src/components/AdminLogin.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/auth/register": {
+            "post": {
+              "summary": "User Registration",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "email": {"type": "string", "format": "email"},
+                        "password": {"type": "string"},
+                        "first_name": {"type": "string"},
+                        "last_name": {"type": "string"},
+                        "phone": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Registration successful",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "access_token": {"type": "string"},
+                          "token_type": {"type": "string"},
+                          "user": {"type": "object"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/auth/login": {
+            "post": {
+              "summary": "User Login",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "email": {"type": "string"},
+                        "password": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {
+                  "description": "Login successful",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "access_token": {"type": "string"},
+                          "token_type": {"type": "string"},
+                          "user": {"type": "object"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/auth/me": {
+            "get": {
+              "summary": "Get Current User Info",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "User information",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "string"},
+                          "email": {"type": "string"},
+                          "first_name": {"type": "string"},
+                          "last_name": {"type": "string"},
+                          "role": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Booking Management System",
+      "description": "Complete booking system with guest checkout, service selection, time slot booking, and payment processing",
+      "files": [
+        "backend/server.py",
+        "frontend/src/components/BookingFlow.js",
+        "frontend/src/components/BookingConfirmation.js",
+        "frontend/src/components/BookingDetailsModal.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/bookings": {
+            "post": {
+              "summary": "Create Booking",
+              "security": [{"bearerAuth": []}],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "house_size": {"type": "string"},
+                        "frequency": {"type": "string"},
+                        "services": {"type": "array"},
+                        "booking_date": {"type": "string"},
+                        "time_slot": {"type": "string"},
+                        "address": {"type": "object"},
+                        "special_instructions": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "get": {
+              "summary": "Get User Bookings",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "List of user bookings"
+                }
+              }
+            }
+          },
+          "/api/bookings/guest": {
+            "post": {
+              "summary": "Create Guest Booking",
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "customer": {"type": "object"},
+                        "house_size": {"type": "string"},
+                        "frequency": {"type": "string"},
+                        "services": {"type": "array"},
+                        "booking_date": {"type": "string"},
+                        "time_slot": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Service Management",
+      "description": "Service catalog with standard and a-la-carte services, pricing calculation, and service management",
+      "files": [
+        "backend/server.py",
+        "frontend/src/components/EditCleaningSelection.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/services": {
+            "get": {
+              "summary": "Get All Services",
+              "responses": {
+                "200": {
+                  "description": "List of all services"
+                }
+              }
+            }
+          },
+          "/api/services/standard": {
+            "get": {
+              "summary": "Get Standard Services",
+              "responses": {
+                "200": {
+                  "description": "List of standard services"
+                }
+              }
+            }
+          },
+          "/api/services/a-la-carte": {
+            "get": {
+              "summary": "Get A-La-Carte Services",
+              "responses": {
+                "200": {
+                  "description": "List of a-la-carte services"
+                }
+              }
+            }
+          },
+          "/api/pricing/{house_size}/{frequency}": {
+            "get": {
+              "summary": "Get Pricing",
+              "parameters": [
+                {"name": "house_size", "in": "path", "required": true, "schema": {"type": "string"}},
+                {"name": "frequency", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "responses": {
+                "200": {
+                  "description": "Pricing information"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Time Slot Management",
+      "description": "Time slot availability system with date-based booking and slot management",
+      "files": [
+        "backend/server.py"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/time-slots": {
+            "get": {
+              "summary": "Get Time Slots",
+              "parameters": [
+                {"name": "date", "in": "query", "required": true, "schema": {"type": "string"}}
+              ],
+              "responses": {
+                "200": {
+                  "description": "Available time slots for date"
+                }
+              }
+            }
+          },
+          "/api/available-dates": {
+            "get": {
+              "summary": "Get Available Dates",
+              "responses": {
+                "200": {
+                  "description": "List of dates with available slots"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Admin Dashboard",
+      "description": "Comprehensive admin dashboard for managing bookings, cleaners, services, and system administration",
+      "files": [
+        "backend/server.py",
+        "frontend/src/components/AdminDashboard.js",
+        "frontend/src/components/AdminLogin.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/admin/stats": {
+            "get": {
+              "summary": "Get Admin Statistics",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "Dashboard statistics"
+                }
+              }
+            }
+          },
+          "/api/admin/bookings": {
+            "get": {
+              "summary": "Get All Bookings",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "List of all bookings"
+                }
+              }
+            }
+          },
+          "/api/admin/cleaners": {
+            "get": {
+              "summary": "Get All Cleaners",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "List of all cleaners"
+                }
+              }
+            },
+            "post": {
+              "summary": "Create Cleaner",
+              "security": [{"bearerAuth": []}],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "email": {"type": "string"},
+                        "first_name": {"type": "string"},
+                        "last_name": {"type": "string"},
+                        "phone": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Promo Code System",
+      "description": "Promotional code management with validation, usage tracking, and discount calculation",
+      "files": [
+        "backend/server.py",
+        "frontend/src/components/PromoCodeManagement.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/validate-promo-code": {
+            "post": {
+              "summary": "Validate Promo Code",
+              "security": [{"bearerAuth": []}],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {"type": "string"},
+                        "subtotal": {"type": "number"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/admin/promo-codes": {
+            "get": {
+              "summary": "Get All Promo Codes",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "List of promo codes"
+                }
+              }
+            },
+            "post": {
+              "summary": "Create Promo Code",
+              "security": [{"bearerAuth": []}],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "code": {"type": "string"},
+                        "discount_type": {"type": "string"},
+                        "discount_value": {"type": "number"},
+                        "valid_from": {"type": "string"},
+                        "valid_until": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Google Calendar Integration",
+      "description": "Google Calendar integration for cleaner scheduling, availability checking, and job assignment",
+      "files": [
+        "backend/server.py",
+        "backend/services/google_calendar_service.py",
+        "frontend/src/components/CalendarIntegration.js",
+        "frontend/src/components/CalendarJobAssignment.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/admin/cleaners/{cleaner_id}/calendar/setup": {
+            "post": {
+              "summary": "Setup Cleaner Calendar",
+              "security": [{"bearerAuth": []}],
+              "parameters": [
+                {"name": "cleaner_id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "credentials": {"type": "object"},
+                        "calendar_id": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "/api/admin/calendar/availability-summary": {
+            "get": {
+              "summary": "Get Availability Summary",
+              "security": [{"bearerAuth": []}],
+              "parameters": [
+                {"name": "date", "in": "query", "required": true, "schema": {"type": "string"}}
+              ],
+              "responses": {
+                "200": {
+                  "description": "Cleaner availability for date"
+                }
+              }
+            }
+          },
+          "/api/admin/calendar/assign-job": {
+            "post": {
+              "summary": "Assign Job to Calendar",
+              "security": [{"bearerAuth": []}],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "booking_id": {"type": "string"},
+                        "cleaner_id": {"type": "string"},
+                        "start_time": {"type": "string"},
+                        "end_time": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Invoice Management",
+      "description": "Invoice generation, management, and PDF export functionality",
+      "files": [
+        "backend/server.py",
+        "frontend/src/components/InvoiceManagement.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/admin/invoices": {
+            "get": {
+              "summary": "Get All Invoices",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "List of invoices"
+                }
+              }
+            }
+          },
+          "/api/admin/invoices/generate/{booking_id}": {
+            "post": {
+              "summary": "Generate Invoice",
+              "security": [{"bearerAuth": []}],
+              "parameters": [
+                {"name": "booking_id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "responses": {
+                "200": {
+                  "description": "Generated invoice"
+                }
+              }
+            }
+          },
+          "/api/admin/invoices/{invoice_id}/pdf": {
+            "get": {
+              "summary": "Generate Invoice PDF",
+              "security": [{"bearerAuth": []}],
+              "parameters": [
+                {"name": "invoice_id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "responses": {
+                "200": {
+                  "description": "PDF content"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Reports and Analytics",
+      "description": "Weekly and monthly reports with export functionality and order management",
+      "files": [
+        "backend/server.py"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/admin/reports/weekly": {
+            "get": {
+              "summary": "Get Weekly Report",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "Weekly report data"
+                }
+              }
+            }
+          },
+          "/api/admin/reports/monthly": {
+            "get": {
+              "summary": "Get Monthly Report",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "Monthly report data"
+                }
+              }
+            }
+          },
+          "/api/admin/export/bookings": {
+            "get": {
+              "summary": "Export Bookings",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "CSV export data"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Customer Dashboard",
+      "description": "Customer portal for managing bookings, payments, and account information",
+      "files": [
+        "frontend/src/components/CustomerDashboard.js",
+        "frontend/src/components/PaymentHistory.js",
+        "frontend/src/components/PaymentInformation.js",
+        "frontend/src/components/RescheduleAppointment.js"
+      ],
+      "api_doc": {
+        "paths": {
+          "/api/bookings": {
+            "get": {
+              "summary": "Get User Bookings",
+              "security": [{"bearerAuth": []}],
+              "responses": {
+                "200": {
+                  "description": "User's booking history"
+                }
+              }
+            }
+          },
+          "/api/bookings/{booking_id}": {
+            "get": {
+              "summary": "Get Booking Details",
+              "security": [{"bearerAuth": []}],
+              "parameters": [
+                {"name": "booking_id", "in": "path", "required": true, "schema": {"type": "string"}}
+              ],
+              "responses": {
+                "200": {
+                  "description": "Booking details"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Flutter Cleaner Mobile App",
+      "description": "Cross-platform mobile application for cleaners to manage jobs, track time, and communicate with customers",
+      "files": [
+        "cleaner_app/lib/main.dart",
+        "cleaner_app/lib/models/",
+        "cleaner_app/lib/screens/",
+        "cleaner_app/lib/services/",
+        "cleaner_app/lib/widgets/"
+      ],
+      "api_doc": {
+        "description": "Flutter mobile app with the following features:",
+        "features": [
+          "Authentication and login system",
+          "Job management and assignment",
+          "Time tracking and clock in/out",
+          "Interactive job checklists",
+          "Customer communication",
+          "Performance dashboard",
+          "Real-time job status updates"
+        ]
+      }
+    }
+  ]
+}

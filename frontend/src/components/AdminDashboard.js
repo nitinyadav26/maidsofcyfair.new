@@ -19,7 +19,11 @@ import {
   AlertCircle,
   CalendarDays,
   Receipt,
-  LogOut
+  LogOut,
+  TrendingUp,
+  Calendar as CalendarIcon,
+  X,
+  RotateCcw
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -35,6 +39,7 @@ import CalendarJobAssignment from './CalendarJobAssignment';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import InvoiceManagement from './InvoiceManagement';
+import PromoCodeManagement from './PromoCodeManagement';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -76,6 +81,29 @@ const AdminDashboard = () => {
     a_la_carte_price: null,
     duration_hours: null
   });
+
+  // Reports and Orders state
+  const [weeklyStats, setWeeklyStats] = useState({
+    totalBookings: 0,
+    revenue: 0,
+    cancellations: 0,
+    reschedules: 0,
+    completionRate: 0,
+    customerSatisfaction: 0,
+    avgBookingValue: 0
+  });
+  const [monthlyStats, setMonthlyStats] = useState({
+    totalBookings: 0,
+    revenue: 0,
+    cancellations: 0,
+    reschedules: 0,
+    completionRate: 0,
+    customerSatisfaction: 0,
+    avgBookingValue: 0
+  });
+  const [pendingCancellations, setPendingCancellations] = useState([]);
+  const [pendingReschedules, setPendingReschedules] = useState([]);
+  const [orderHistory, setOrderHistory] = useState([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -229,7 +257,13 @@ const AdminDashboard = () => {
   // Service management functions
   const createService = async () => {
     try {
-      await axios.post(`${API}/admin/services`, newService);
+      // Prepare service data with proper is_a_la_carte flag
+      const serviceData = {
+        ...newService,
+        is_a_la_carte: newService.category === 'a_la_carte'
+      };
+      
+      await axios.post(`${API}/admin/services`, serviceData);
       toast.success('Service created successfully');
       setNewService({
         name: '',
@@ -325,6 +359,93 @@ const AdminDashboard = () => {
     );
   };
 
+  // Reports and Orders functions
+  const loadReports = async () => {
+    try {
+      const [weeklyResponse, monthlyResponse] = await Promise.all([
+        axios.get(`${API}/admin/reports/weekly`),
+        axios.get(`${API}/admin/reports/monthly`)
+      ]);
+      
+      setWeeklyStats(weeklyResponse.data);
+      setMonthlyStats(monthlyResponse.data);
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+      toast.error('Failed to load reports');
+    }
+  };
+
+  const loadPendingOrders = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/orders/pending`);
+      setPendingCancellations(response.data.cancellations || []);
+      setPendingReschedules(response.data.reschedules || []);
+    } catch (error) {
+      console.error('Failed to load pending orders:', error);
+      toast.error('Failed to load pending orders');
+    }
+  };
+
+  const loadOrderHistory = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/orders/history`);
+      setOrderHistory(response.data || []);
+    } catch (error) {
+      console.error('Failed to load order history:', error);
+      toast.error('Failed to load order history');
+    }
+  };
+
+  const handleOrderAction = async (orderId, action) => {
+    try {
+      await axios.post(`${API}/admin/orders/${orderId}/${action}`);
+      toast.success(`Order ${action.replace('_', ' ')} successful`);
+      loadPendingOrders();
+      loadOrderHistory();
+    } catch (error) {
+      console.error(`Failed to ${action}:`, error);
+      toast.error(`Failed to ${action.replace('_', ' ')} order`);
+    }
+  };
+
+  const exportReport = async (type) => {
+    try {
+      const response = await axios.get(`${API}/admin/reports/${type}/export`);
+      const csvData = response.data.data;
+      
+      // Convert to CSV
+      const headers = Object.keys(csvData[0] || {});
+      const csvContent = [
+        headers.join(','),
+        ...csvData.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+      ].join('\n');
+      
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${type}_report_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} report exported`);
+    } catch (error) {
+      console.error(`Failed to export ${type} report:`, error);
+      toast.error(`Failed to export ${type} report`);
+    }
+  };
+
+  // Load reports and orders when switching to those tabs
+  useEffect(() => {
+    if (activeTab === 'reports') {
+      loadReports();
+    } else if (activeTab === 'orders') {
+      loadPendingOrders();
+      loadOrderHistory();
+    }
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Admin Header */}
@@ -355,40 +476,99 @@ const AdminDashboard = () => {
 
       <div className="container py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:grid-cols-none lg:flex">
-            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
+          {/* Enhanced Tab Navigation */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-1 p-1 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 shadow-inner">
+            <TabsTrigger 
+              value="dashboard" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <BarChart3 size={16} />
-              <span>Dashboard</span>
+              <span className="hidden sm:inline">Dashboard</span>
+              <span className="sm:hidden" title="Dashboard">📊</span>
             </TabsTrigger>
-            <TabsTrigger value="bookings" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="bookings" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <Calendar size={16} />
-              <span>Bookings</span>
+              <span className="hidden sm:inline">Bookings</span>
+              <span className="sm:hidden" title="Bookings">📅</span>
             </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="calendar" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <CalendarDays size={16} />
-              <span>Calendar</span>
+              <span className="hidden sm:inline">Calendar</span>
+              <span className="sm:hidden" title="Calendar">🗓️</span>
             </TabsTrigger>
-            <TabsTrigger value="invoices" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="invoices" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <Receipt size={16} />
-              <span>Invoices</span>
+              <span className="hidden sm:inline">Invoices</span>
+              <span className="sm:hidden" title="Invoices">🧾</span>
             </TabsTrigger>
-            <TabsTrigger value="cleaners" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="cleaners" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <UserCheck size={16} />
-              <span>Cleaners</span>
+              <span className="hidden sm:inline">Cleaners</span>
+              <span className="sm:hidden" title="Cleaners">👥</span>
             </TabsTrigger>
-            <TabsTrigger value="services" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="services" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <Package size={16} />
-              <span>Services</span>
+              <span className="hidden sm:inline">Services</span>
+              <span className="sm:hidden" title="Services">📦</span>
             </TabsTrigger>
-            <TabsTrigger value="faqs" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="promos" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
+              <DollarSign size={16} />
+              <span className="hidden sm:inline">Promo Codes</span>
+              <span className="sm:hidden" title="Promo Codes">💰</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="reports" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
+              <TrendingUp size={16} />
+              <span className="hidden sm:inline">Reports</span>
+              <span className="sm:hidden" title="Reports">📈</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="orders" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
+              <CalendarIcon size={16} />
+              <span className="hidden sm:inline">Orders</span>
+              <span className="sm:hidden" title="Orders">📋</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="faqs" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <FileText size={16} />
-              <span>FAQs</span>
+              <span className="hidden sm:inline">FAQs</span>
+              <span className="sm:hidden" title="FAQs">❓</span>
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="flex items-center space-x-2">
+            <TabsTrigger 
+              value="tickets" 
+              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+            >
               <MessageSquare size={16} />
-              <span>Tickets</span>
+              <span className="hidden sm:inline">Tickets</span>
+              <span className="sm:hidden" title="Tickets">🎫</span>
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Dashboard Overview */}
           <TabsContent value="dashboard" className="space-y-6">
@@ -476,6 +656,244 @@ const AdminDashboard = () => {
             <InvoiceManagement />
           </TabsContent>
 
+          {/* Promo Code Management */}
+          <TabsContent value="promos" className="space-y-6">
+            <PromoCodeManagement />
+          </TabsContent>
+
+          {/* Reports */}
+          <TabsContent value="reports" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Reports & Analytics</h2>
+              <div className="flex space-x-2">
+                <Button onClick={() => exportReport('weekly')} variant="outline">
+                  <Download className="mr-2" size={16} />
+                  Weekly Report
+                </Button>
+                <Button onClick={() => exportReport('monthly')} variant="outline">
+                  <Download className="mr-2" size={16} />
+                  Monthly Report
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Weekly Report */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <TrendingUp className="mr-2" size={20} />
+                    Weekly Report
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Total Bookings:</span>
+                      <span className="font-semibold">{weeklyStats.totalBookings}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Revenue:</span>
+                      <span className="font-semibold text-green-600">${weeklyStats.revenue}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Cancellations:</span>
+                      <span className="font-semibold text-red-600">{weeklyStats.cancellations}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Reschedules:</span>
+                      <span className="font-semibold text-yellow-600">{weeklyStats.reschedules}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Monthly Report */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <BarChart3 className="mr-2" size={20} />
+                    Monthly Report
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Total Bookings:</span>
+                      <span className="font-semibold">{monthlyStats.totalBookings}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Revenue:</span>
+                      <span className="font-semibold text-green-600">${monthlyStats.revenue}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Cancellations:</span>
+                      <span className="font-semibold text-red-600">{monthlyStats.cancellations}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Reschedules:</span>
+                      <span className="font-semibold text-yellow-600">{monthlyStats.reschedules}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Detailed Analytics */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{weeklyStats.completionRate}%</div>
+                    <div className="text-sm text-gray-600">Completion Rate</div>
+                  </div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{weeklyStats.customerSatisfaction}%</div>
+                    <div className="text-sm text-gray-600">Customer Satisfaction</div>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">{weeklyStats.avgBookingValue}</div>
+                    <div className="text-sm text-gray-600">Avg Booking Value</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Order Management */}
+          <TabsContent value="orders" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Order Management</h2>
+              <div className="flex space-x-2">
+                <Button onClick={loadPendingOrders} variant="outline">
+                  <RotateCcw className="mr-2" size={16} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Pending Cancellations */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <X className="mr-2 text-red-600" size={20} />
+                    Pending Cancellations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {pendingCancellations.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">#{order.id.slice(-8)}</div>
+                          <div className="text-sm text-gray-600">{order.customer_name}</div>
+                          <div className="text-sm text-gray-500">{order.booking_date}</div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleOrderAction(order.id, 'approve_cancellation')}
+                          >
+                            Approve
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleOrderAction(order.id, 'deny_cancellation')}
+                          >
+                            Deny
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingCancellations.length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No pending cancellations</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Pending Reschedules */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <RotateCcw className="mr-2 text-yellow-600" size={20} />
+                    Pending Reschedules
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {pendingReschedules.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium">#{order.id.slice(-8)}</div>
+                          <div className="text-sm text-gray-600">{order.customer_name}</div>
+                          <div className="text-sm text-gray-500">
+                            {order.original_date} → {order.new_date}
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleOrderAction(order.id, 'approve_reschedule')}
+                          >
+                            Approve
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => handleOrderAction(order.id, 'deny_reschedule')}
+                          >
+                            Deny
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {pendingReschedules.length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No pending reschedules</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Order History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Order Changes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {orderHistory.map((order) => (
+                    <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          order.type === 'cancellation' ? 'bg-red-500' : 'bg-yellow-500'
+                        }`}></div>
+                        <div>
+                          <div className="font-medium">#{order.id.slice(-8)}</div>
+                          <div className="text-sm text-gray-600">{order.customer_name}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          {order.type === 'cancellation' ? 'Cancelled' : 'Rescheduled'}
+                        </div>
+                        <div className="text-xs text-gray-500">{order.timestamp}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Bookings Management */}
           <TabsContent value="bookings" className="space-y-6">
             <div className="flex justify-between items-center">
@@ -518,13 +936,14 @@ const AdminDashboard = () => {
                           <td className="p-4">{getStatusBadge(booking.status)}</td>
                           <td className="p-4">
                             <Select
-                              value={booking.cleaner_id || ''}
-                              onValueChange={(value) => assignCleaner(booking.id, value)}
+                              value={booking.cleaner_id || undefined}
+                              onValueChange={(value) => assignCleaner(booking.id, value === 'none' ? null : value)}
                             >
                               <SelectTrigger className="w-32">
                                 <SelectValue placeholder="Assign" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="none">Unassigned</SelectItem>
                                 {cleaners.map((cleaner) => (
                                   <SelectItem key={cleaner.id} value={cleaner.id}>
                                     {cleaner.first_name} {cleaner.last_name}
@@ -672,7 +1091,11 @@ const AdminDashboard = () => {
                     />
                     <Select
                       value={newService.category}
-                      onValueChange={(value) => setNewService({...newService, category: value})}
+                      onValueChange={(value) => setNewService({
+                        ...newService, 
+                        category: value,
+                        is_a_la_carte: value === 'a_la_carte'
+                      })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Category" />

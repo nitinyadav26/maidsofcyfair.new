@@ -3,7 +3,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 import os
+import json
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
@@ -19,10 +21,10 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
-mongo_url = os.environ['mongodb://localhost:27017']
+mongo_url = os.getenv("MONGO_URL", "mongodb://localhost:27017")
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['maidsofcyfair']]
-
+db_name = os.getenv("DB_NAME", "maidsofcyfair")
+db = client[db_name]
 # Google Calendar Service
 calendar_service = 0
 
@@ -90,6 +92,10 @@ class InvoiceStatus(str, Enum):
     PAID = "paid"
     OVERDUE = "overdue"
     CANCELLED = "cancelled"
+
+class DiscountType(str, Enum):
+    PERCENTAGE = "percentage"
+    FIXED = "fixed"
 
 # Auth Models
 class UserLogin(BaseModel):
@@ -251,6 +257,38 @@ class CalendarTimeSlot(BaseModel):
     is_available: bool
     booking_id: Optional[str] = None
 
+# Promo Code Models
+class PromoCode(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    code: str
+    description: Optional[str] = None
+    discount_type: DiscountType
+    discount_value: float
+    minimum_order_amount: Optional[float] = None
+    maximum_discount_amount: Optional[float] = None
+    usage_limit: Optional[int] = None
+    usage_count: int = 0
+    usage_limit_per_customer: Optional[int] = 1
+    valid_from: Optional[datetime] = None
+    valid_until: Optional[datetime] = None
+    is_active: bool = True
+    applicable_services: List[str] = []
+    applicable_customers: List[str] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PromoCodeUsage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    promo_code_id: str
+    customer_id: str
+    booking_id: str
+    discount_amount: float
+    used_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PromoCodeValidation(BaseModel):
+    code: str
+    subtotal: float
+
 # Helper Functions
 def prepare_for_mongo(data):
     """Prepare data for MongoDB insertion by converting datetime to ISO strings"""
@@ -348,6 +386,95 @@ def calculate_job_duration(house_size: HouseSize, services: List[BookingService]
     
     # Round up to nearest hour
     return int(total_duration) if total_duration == int(total_duration) else int(total_duration) + 1
+
+def calculate_discount(promo: PromoCode, subtotal: float) -> float:
+    """Calculate discount amount with security checks"""
+    if promo.discount_type == DiscountType.PERCENTAGE:
+        discount = (subtotal * promo.discount_value) / 100
+    else:  # FIXED
+        discount = promo.discount_value
+    
+    # Apply maximum discount limit
+    if promo.maximum_discount_amount:
+        discount = min(discount, promo.maximum_discount_amount)
+    
+    # Ensure discount doesn't exceed subtotal
+    discount = min(discount, subtotal)
+    
+    # Round to 2 decimal places
+    return round(discount, 2)
+
+async def validate_promo_code(code: str, customer_id: str, subtotal: float) -> dict:
+    """Comprehensive promo code validation with security checks"""
+    # 1. Basic validation
+    if not code or len(code.strip()) == 0:
+        return {"valid": False, "message": "Promo code is required"}
+    
+    # 2. Database lookup
+    promo = await db.promo_codes.find_one({"code": code.upper()})
+    if not promo:
+        return {"valid": False, "message": "Invalid promo code"}
+    
+    # 3. Active status check
+    if not promo.get("is_active", False):
+        return {"valid": False, "message": "Promo code is not active"}
+    
+    # 4. Date validation
+    now = datetime.utcnow()
+    if promo.get("valid_from") and now < promo["valid_from"]:
+        return {"valid": False, "message": "Promo code is not yet valid"}
+    
+    if promo.get("valid_until") and now > promo["valid_until"]:
+        return {"valid": False, "message": "Promo code has expired"}
+    
+    # 5. Usage limit validation
+    if promo.get("usage_limit") and promo.get("usage_count", 0) >= promo["usage_limit"]:
+        return {"valid": False, "message": "Promo code usage limit reached"}
+    
+    # 6. Customer usage limit validation
+    customer_usage = await db.promo_code_usage.count_documents({
+        "customer_id": customer_id,
+        "promo_code_id": promo["id"]
+    })
+    usage_limit_per_customer = promo.get("usage_limit_per_customer", 1)
+    if usage_limit_per_customer and customer_usage >= usage_limit_per_customer:
+        return {"valid": False, "message": "You have already used this promo code"}
+    
+    # 7. Minimum order amount validation
+    if promo.get("minimum_order_amount") and subtotal < promo["minimum_order_amount"]:
+        return {"valid": False, "message": f"Minimum order amount of ${promo['minimum_order_amount']} required"}
+    
+    # 8. Customer applicability validation
+    if promo.get("applicable_customers") and customer_id not in promo["applicable_customers"]:
+        return {"valid": False, "message": "Promo code not applicable to your account"}
+    
+    # 9. Calculate discount
+    # First clean the promo data before creating Pydantic model
+    promo_clean = clean_object_for_json(promo)
+    promo_obj = PromoCode(**promo_clean)
+    discount = calculate_discount(promo_obj, subtotal)
+
+    # Create response with manual serialization
+    response_data = {
+        "valid": True,
+        "promo": promo_clean,
+        "discount": float(discount),
+        "final_amount": float(subtotal - discount)
+    }
+    
+    # Double-check for any remaining ObjectIds
+    def final_clean(obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: final_clean(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [final_clean(item) for item in obj]
+        else:
+            return obj
+    
+    response_data = final_clean(response_data)
+    return response_data
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     try:
@@ -451,6 +578,141 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "role": current_user.role
     }
 
+# Promo Code endpoints
+@api_router.post("/validate-promo-code")
+async def validate_promo_code_endpoint(validation_data: PromoCodeValidation, current_user: User = Depends(get_current_user)):
+    """Validate and calculate discount for a promo code"""
+    result = await validate_promo_code(
+        validation_data.code, 
+        current_user.id, 
+        validation_data.subtotal
+    )
+    return result
+
+# Admin Promo Code Management
+def clean_object_for_json(obj):
+    """Recursively clean objects for JSON serialization"""
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {k: clean_object_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_object_for_json(item) for item in obj]
+    else:
+        return obj
+
+class ObjectIdEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles ObjectId serialization"""
+    def default(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+@api_router.get("/admin/promo-codes", response_model=List[PromoCode])
+async def get_promo_codes(admin_user: User = Depends(get_admin_user)):
+    """Get all promo codes with usage statistics"""
+    promos = await db.promo_codes.find().sort("created_at", -1).to_list(1000)
+    # Convert ObjectId to string for JSON serialization
+    clean_promos = []
+    for promo in promos:
+        promo_clean = clean_object_for_json(promo)
+        clean_promos.append(PromoCode(**promo_clean))
+    return clean_promos
+
+@api_router.post("/admin/promo-codes", response_model=PromoCode)
+async def create_promo_code(promo_data: dict, admin_user: User = Depends(get_admin_user)):
+    """Create a new promo code"""
+    # Validate required fields
+    if not promo_data.get("code") or not promo_data.get("discount_value"):
+        raise HTTPException(status_code=400, detail="Code and discount value are required")
+    
+    # Check if code already exists
+    existing = await db.promo_codes.find_one({"code": promo_data["code"].upper()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Promo code already exists")
+    
+    # Set default values for optional fields
+    promo_data.setdefault("usage_limit_per_customer", 1)
+    promo_data.setdefault("is_active", True)
+    promo_data.setdefault("applicable_services", [])
+    promo_data.setdefault("applicable_customers", [])
+    
+    # Convert string values to appropriate types
+    if promo_data.get("discount_value"):
+        promo_data["discount_value"] = float(promo_data["discount_value"])
+    if promo_data.get("minimum_order_amount"):
+        promo_data["minimum_order_amount"] = float(promo_data["minimum_order_amount"])
+    if promo_data.get("maximum_discount_amount"):
+        promo_data["maximum_discount_amount"] = float(promo_data["maximum_discount_amount"])
+    if promo_data.get("usage_limit"):
+        promo_data["usage_limit"] = int(promo_data["usage_limit"])
+    if promo_data.get("usage_limit_per_customer"):
+        promo_data["usage_limit_per_customer"] = int(promo_data["usage_limit_per_customer"])
+    
+    # Convert date strings to datetime objects
+    if promo_data.get("valid_from"):
+        promo_data["valid_from"] = datetime.fromisoformat(promo_data["valid_from"].replace('Z', '+00:00'))
+    if promo_data.get("valid_until"):
+        promo_data["valid_until"] = datetime.fromisoformat(promo_data["valid_until"].replace('Z', '+00:00'))
+    
+    # Create promo code
+    promo = PromoCode(**promo_data)
+    promo_dict = prepare_for_mongo(promo.dict())
+    await db.promo_codes.insert_one(promo_dict)
+    return promo
+
+@api_router.put("/admin/promo-codes/{promo_id}", response_model=PromoCode)
+async def update_promo_code(promo_id: str, promo_data: dict, admin_user: User = Depends(get_admin_user)):
+    """Update a promo code"""
+    # Check if promo exists
+    existing = await db.promo_codes.find_one({"id": promo_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    # Update promo code
+    promo_data["updated_at"] = datetime.utcnow().isoformat()
+    result = await db.promo_codes.update_one(
+        {"id": promo_id},
+        {"$set": promo_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    # Return updated promo
+    updated_promo = await db.promo_codes.find_one({"id": promo_id})
+    promo_clean = clean_object_for_json(updated_promo)
+    return PromoCode(**promo_clean)
+
+@api_router.patch("/admin/promo-codes/{promo_id}")
+async def toggle_promo_code_status(promo_id: str, update_data: dict, admin_user: User = Depends(get_admin_user)):
+    """Toggle promo code active status"""
+    result = await db.promo_codes.update_one(
+        {"id": promo_id},
+        {"$set": {**update_data, "updated_at": datetime.utcnow().isoformat()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    return {"message": "Promo code updated successfully"}
+
+@api_router.delete("/admin/promo-codes/{promo_id}")
+async def delete_promo_code(promo_id: str, admin_user: User = Depends(get_admin_user)):
+    """Delete a promo code"""
+    result = await db.promo_codes.delete_one({"id": promo_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Promo code not found")
+    
+    # Also delete related usage records
+    await db.promo_code_usage.delete_many({"promo_code_id": promo_id})
+    
+    return {"message": "Promo code deleted successfully"}
+
 # Services endpoints
 @api_router.get("/services", response_model=List[Service])
 async def get_services():
@@ -491,8 +753,17 @@ async def get_available_dates():
     return [item["_id"] for item in dates]
 
 # Booking endpoints
+@api_router.post("/bookings/guest")
+async def create_guest_booking(booking_data: dict):
+    """Create a booking for guest users (no authentication required)"""
+    return await create_booking_internal(booking_data, is_guest=True)
+
 @api_router.post("/bookings", response_model=Booking)
 async def create_booking(booking_data: dict, current_user: User = Depends(get_current_user)):
+    """Create a booking for authenticated users"""
+    return await create_booking_internal(booking_data, current_user=current_user, is_guest=False)
+
+async def create_booking_internal(booking_data: dict, current_user: User = None, is_guest: bool = False):
     # Calculate a la carte total
     a_la_carte_total = 0.0
     if booking_data.get('a_la_carte_services'):
@@ -503,10 +774,39 @@ async def create_booking(booking_data: dict, current_user: User = Depends(get_cu
                 dynamic_price = get_dynamic_a_la_carte_price(service, booking_data['house_size'])
                 a_la_carte_total += dynamic_price * service_data.get('quantity', 1)
     
+    # Calculate subtotal
+    subtotal = booking_data['base_price'] + a_la_carte_total
+    
+    # Handle promo code if provided
+    discount_amount = 0.0
+    promo_code_id = None
+    if booking_data.get('promo_code'):
+        # For guest users, use a temporary customer ID
+        customer_id = current_user.id if current_user else f"guest_{booking_data['customer']['email']}"
+        
+        # Validate promo code
+        validation_result = await validate_promo_code(
+            booking_data['promo_code'], 
+            customer_id, 
+            subtotal
+        )
+        
+        if validation_result['valid']:
+            discount_amount = validation_result['discount']
+            promo_code_id = validation_result['promo']['id']
+        else:
+            raise HTTPException(status_code=400, detail=validation_result['message'])
+    
+    # Calculate final total
+    final_total = subtotal - discount_amount
+    
     # Create booking
+    user_id = current_user.id if current_user else None
+    customer_id = current_user.id if current_user else f"guest_{booking_data['customer']['email']}"
+    
     booking = Booking(
-        user_id=current_user.id,
-        customer_id=current_user.id,
+        user_id=user_id,
+        customer_id=customer_id,
         house_size=booking_data['house_size'],
         frequency=booking_data['frequency'],
         rooms=booking_data.get('rooms'),
@@ -516,8 +816,13 @@ async def create_booking(booking_data: dict, current_user: User = Depends(get_cu
         time_slot=booking_data['time_slot'],
         base_price=booking_data['base_price'],
         a_la_carte_total=a_la_carte_total,
-        total_amount=booking_data['base_price'] + a_la_carte_total,
-        address=Address(**booking_data['address']) if booking_data.get('address') else None,
+        total_amount=final_total,
+        address=Address(**booking_data['address']) if booking_data.get('address') else Address(
+            street=booking_data['customer']['address'],
+            city=booking_data['customer']['city'],
+            state=booking_data['customer']['state'],
+            zip_code=booking_data['customer']['zip_code']
+        ),
         special_instructions=booking_data.get('special_instructions'),
         estimated_duration_hours=calculate_job_duration(
             HouseSize(booking_data['house_size']),
@@ -527,7 +832,39 @@ async def create_booking(booking_data: dict, current_user: User = Depends(get_cu
     )
     
     booking_dict = prepare_for_mongo(booking.dict())
+    
+    # Add customer information to the booking document for guest customers
+    if not current_user:  # Guest booking
+        booking_dict['customer'] = {
+            'email': booking_data['customer']['email'],
+            'first_name': booking_data['customer']['first_name'],
+            'last_name': booking_data['customer']['last_name'],
+            'phone': booking_data['customer']['phone'],
+            'address': booking_data['customer']['address'],
+            'city': booking_data['customer']['city'],
+            'state': booking_data['customer']['state'],
+            'zip_code': booking_data['customer']['zip_code'],
+            'is_guest': True
+        }
+    
     await db.bookings.insert_one(booking_dict)
+    
+    # Record promo code usage if applicable
+    if promo_code_id and discount_amount > 0:
+        usage = PromoCodeUsage(
+            promo_code_id=promo_code_id,
+            customer_id=customer_id,
+            booking_id=booking.id,
+            discount_amount=discount_amount
+        )
+        usage_dict = prepare_for_mongo(usage.dict())
+        await db.promo_code_usage.insert_one(usage_dict)
+        
+        # Increment usage count
+        await db.promo_codes.update_one(
+            {"id": promo_code_id},
+            {"$inc": {"usage_count": 1}}
+        )
     
     # Mark time slot as unavailable
     await db.time_slots.update_one(
@@ -553,6 +890,56 @@ async def get_booking(booking_id: str, current_user: User = Depends(get_current_
         raise HTTPException(status_code=403, detail="Access denied")
     
     return Booking(**booking)
+
+@api_router.get("/customers/{customer_id}")
+async def get_customer(customer_id: str):
+    """Get customer information by customer ID"""
+    # For guest customers, the customer_id is in format "guest_{email}"
+    if customer_id.startswith("guest_"):
+        # For guest customers, we need to extract the email and look up the booking
+        # to get the customer information that was stored during booking creation
+        email = customer_id.replace("guest_", "")
+        
+        # Find the most recent booking for this guest email
+        booking = await db.bookings.find_one(
+            {"customer_id": customer_id},
+            sort=[("created_at", -1)]
+        )
+        
+        if not booking:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        # Return customer information from the booking
+        return {
+            "id": customer_id,
+            "email": email,
+            "first_name": booking.get("customer", {}).get("first_name", ""),
+            "last_name": booking.get("customer", {}).get("last_name", ""),
+            "phone": booking.get("customer", {}).get("phone", ""),
+            "address": booking.get("customer", {}).get("address", ""),
+            "city": booking.get("customer", {}).get("city", ""),
+            "state": booking.get("customer", {}).get("state", ""),
+            "zip_code": booking.get("customer", {}).get("zip_code", ""),
+            "is_guest": True
+        }
+    else:
+        # For registered users, look up in the users collection
+        user = await db.users.find_one({"id": customer_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        return {
+            "id": user["id"],
+            "email": user["email"],
+            "first_name": user["first_name"],
+            "last_name": user["last_name"],
+            "phone": user.get("phone", ""),
+            "address": "",  # Address would be stored in bookings
+            "city": "",
+            "state": "",
+            "zip_code": "",
+            "is_guest": False
+        }
 
 # Admin endpoints
 @api_router.get("/admin/stats")
@@ -1086,20 +1473,139 @@ async def generate_invoice_pdf(
     invoice_id: str,
     admin_user: User = Depends(get_admin_user)
 ):
-    """Generate PDF for invoice (mock implementation)"""
+    """Generate PDF for invoice"""
     try:
-        # Get invoice
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from io import BytesIO
+        import base64
+        
+        # Get invoice details
         invoice = await db.invoices.find_one({"id": invoice_id})
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
         
-        # For now, return mock PDF data
-        # In a real implementation, you would use a PDF generation library
+        # Create PDF in memory
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=1  # Center alignment
+        )
+        
+        header_style = ParagraphStyle(
+            'CustomHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12
+        )
+        
+        # Build PDF content
+        story = []
+        
+        # Title
+        story.append(Paragraph("INVOICE", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Invoice details
+        invoice_data = [
+            ['Invoice Number:', invoice.get('invoice_number', 'N/A')],
+            ['Date:', invoice.get('created_at', 'N/A')],
+            ['Status:', invoice.get('status', 'N/A').upper()],
+            ['Customer:', invoice.get('customer_name', 'N/A')],
+            ['Email:', invoice.get('customer_email', 'N/A')],
+            ['Phone:', invoice.get('customer_phone', 'N/A')]
+        ]
+        
+        invoice_table = Table(invoice_data, colWidths=[2*inch, 3*inch])
+        invoice_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+        ]))
+        
+        story.append(invoice_table)
+        story.append(Spacer(1, 20))
+        
+        # Service details
+        story.append(Paragraph("Service Details", header_style))
+        
+        service_data = [['Description', 'Quantity', 'Rate', 'Amount']]
+        
+        # Add service items
+        for item in invoice.get('items', []):
+            service_data.append([
+                item.get('description', 'N/A'),
+                str(item.get('quantity', 0)),
+                f"${item.get('rate', 0):.2f}",
+                f"${item.get('amount', 0):.2f}"
+            ])
+        
+        service_table = Table(service_data, colWidths=[3*inch, 1*inch, 1*inch, 1*inch])
+        service_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(service_table)
+        story.append(Spacer(1, 20))
+        
+        # Totals
+        totals_data = [
+            ['Subtotal:', f"${invoice.get('subtotal', 0):.2f}"],
+            ['Tax:', f"${invoice.get('tax_amount', 0):.2f}"],
+            ['Total:', f"${invoice.get('total_amount', 0):.2f}"]
+        ]
+        
+        totals_table = Table(totals_data, colWidths=[4*inch, 2*inch])
+        totals_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('LINEBELOW', (0, -1), (-1, -1), 2, colors.black),
+        ]))
+        
+        story.append(totals_table)
+        story.append(Spacer(1, 30))
+        
+        # Footer
+        story.append(Paragraph("Thank you for your business!", styles['Normal']))
+        story.append(Paragraph("Maids of Cy-Fair", styles['Normal']))
+        
+        # Build PDF
+        doc.build(story)
+        
+        # Get PDF content
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        
+        # Convert to base64 for response
+        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+        
         return {
-            "message": "PDF generation endpoint ready",
+            "message": "PDF generated successfully",
             "invoice_id": invoice_id,
-            "pdf_url": f"/api/admin/invoices/{invoice_id}/download",
-            "note": "PDF generation would be implemented here using libraries like ReportLab or WeasyPrint"
+            "pdf_content": pdf_base64,
+            "filename": f"invoice_{invoice.get('invoice_number', invoice_id)}.pdf"
         }
     
     except HTTPException:
@@ -1235,6 +1741,241 @@ async def initialize_database():
 @app.on_event("startup")
 async def startup_event():
     await initialize_database()
+
+# Reports endpoints
+@api_router.get("/admin/reports/weekly")
+async def get_weekly_report(admin_user: User = Depends(get_admin_user)):
+    """Get weekly report data"""
+    from datetime import datetime, timedelta
+    
+    # Get current week start and end
+    today = datetime.now()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    # Get bookings for this week
+    bookings = await db.bookings.find({
+        "booking_date": {
+            "$gte": week_start.strftime("%Y-%m-%d"),
+            "$lte": week_end.strftime("%Y-%m-%d")
+        }
+    }).to_list(1000)
+    
+    # Calculate stats
+    total_bookings = len(bookings)
+    revenue = sum(booking.get("total_amount", 0) for booking in bookings)
+    cancellations = len([b for b in bookings if b.get("status") == "cancelled"])
+    reschedules = len([b for b in bookings if b.get("status") == "rescheduled"])
+    completed = len([b for b in bookings if b.get("status") == "completed"])
+    
+    completion_rate = (completed / total_bookings * 100) if total_bookings > 0 else 0
+    avg_booking_value = (revenue / total_bookings) if total_bookings > 0 else 0
+    
+    return {
+        "totalBookings": total_bookings,
+        "revenue": round(revenue, 2),
+        "cancellations": cancellations,
+        "reschedules": reschedules,
+        "completionRate": round(completion_rate, 1),
+        "customerSatisfaction": 95.0,  # Placeholder - would come from feedback system
+        "avgBookingValue": round(avg_booking_value, 2)
+    }
+
+@api_router.get("/admin/reports/monthly")
+async def get_monthly_report(admin_user: User = Depends(get_admin_user)):
+    """Get monthly report data"""
+    from datetime import datetime, timedelta
+    
+    # Get current month start and end
+    today = datetime.now()
+    month_start = today.replace(day=1)
+    if today.month == 12:
+        month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+    
+    # Get bookings for this month
+    bookings = await db.bookings.find({
+        "booking_date": {
+            "$gte": month_start.strftime("%Y-%m-%d"),
+            "$lte": month_end.strftime("%Y-%m-%d")
+        }
+    }).to_list(1000)
+    
+    # Calculate stats
+    total_bookings = len(bookings)
+    revenue = sum(booking.get("total_amount", 0) for booking in bookings)
+    cancellations = len([b for b in bookings if b.get("status") == "cancelled"])
+    reschedules = len([b for b in bookings if b.get("status") == "rescheduled"])
+    completed = len([b for b in bookings if b.get("status") == "completed"])
+    
+    completion_rate = (completed / total_bookings * 100) if total_bookings > 0 else 0
+    avg_booking_value = (revenue / total_bookings) if total_bookings > 0 else 0
+    
+    return {
+        "totalBookings": total_bookings,
+        "revenue": round(revenue, 2),
+        "cancellations": cancellations,
+        "reschedules": reschedules,
+        "completionRate": round(completion_rate, 1),
+        "customerSatisfaction": 95.0,  # Placeholder - would come from feedback system
+        "avgBookingValue": round(avg_booking_value, 2)
+    }
+
+@api_router.get("/admin/reports/{report_type}/export")
+async def export_report(report_type: str, admin_user: User = Depends(get_admin_user)):
+    """Export report data as CSV"""
+    from datetime import datetime, timedelta
+    
+    if report_type == "weekly":
+        today = datetime.now()
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        
+        bookings = await db.bookings.find({
+            "booking_date": {
+                "$gte": week_start.strftime("%Y-%m-%d"),
+                "$lte": week_end.strftime("%Y-%m-%d")
+            }
+        }).to_list(1000)
+    else:  # monthly
+        today = datetime.now()
+        month_start = today.replace(day=1)
+        if today.month == 12:
+            month_end = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+        
+        bookings = await db.bookings.find({
+            "booking_date": {
+                "$gte": month_start.strftime("%Y-%m-%d"),
+                "$lte": month_end.strftime("%Y-%m-%d")
+            }
+        }).to_list(1000)
+    
+    # Format data for CSV export
+    export_data = []
+    for booking in bookings:
+        export_data.append({
+            "booking_id": booking.get("id", ""),
+            "customer_id": booking.get("customer_id", ""),
+            "booking_date": booking.get("booking_date", ""),
+            "time_slot": booking.get("time_slot", ""),
+            "house_size": booking.get("house_size", ""),
+            "frequency": booking.get("frequency", ""),
+            "total_amount": booking.get("total_amount", 0),
+            "status": booking.get("status", ""),
+            "cleaner_id": booking.get("cleaner_id", ""),
+            "created_at": booking.get("created_at", "")
+        })
+    
+    return {"data": export_data}
+
+# Order Management endpoints
+@api_router.get("/admin/orders/pending")
+async def get_pending_orders(admin_user: User = Depends(get_admin_user)):
+    """Get pending cancellations and reschedules"""
+    # Get bookings with pending status changes
+    pending_bookings = await db.bookings.find({
+        "status": {"$in": ["pending_cancellation", "pending_reschedule"]}
+    }).to_list(1000)
+    
+    cancellations = []
+    reschedules = []
+    
+    for booking in pending_bookings:
+        if booking.get("status") == "pending_cancellation":
+            cancellations.append({
+                "id": booking.get("id"),
+                "customer_name": f"Customer {booking.get('customer_id', '')[:8]}",
+                "booking_date": booking.get("booking_date"),
+                "total_amount": booking.get("total_amount")
+            })
+        elif booking.get("status") == "pending_reschedule":
+            reschedules.append({
+                "id": booking.get("id"),
+                "customer_name": f"Customer {booking.get('customer_id', '')[:8]}",
+                "original_date": booking.get("booking_date"),
+                "new_date": booking.get("new_booking_date", booking.get("booking_date")),
+                "total_amount": booking.get("total_amount")
+            })
+    
+    return {
+        "cancellations": cancellations,
+        "reschedules": reschedules
+    }
+
+@api_router.get("/admin/orders/history")
+async def get_order_history(admin_user: User = Depends(get_admin_user)):
+    """Get order change history"""
+    # Get recent bookings with status changes
+    recent_bookings = await db.bookings.find({
+        "status": {"$in": ["cancelled", "rescheduled"]},
+        "updated_at": {"$gte": (datetime.now() - timedelta(days=30)).isoformat()}
+    }).sort("updated_at", -1).limit(50).to_list(50)
+    
+    history = []
+    for booking in recent_bookings:
+        history.append({
+            "id": booking.get("id"),
+            "customer_name": f"Customer {booking.get('customer_id', '')[:8]}",
+            "type": "cancellation" if booking.get("status") == "cancelled" else "reschedule",
+            "timestamp": booking.get("updated_at", booking.get("created_at"))
+        })
+    
+    return history
+
+@api_router.post("/admin/orders/{order_id}/approve_cancellation")
+async def approve_cancellation(order_id: str, admin_user: User = Depends(get_admin_user)):
+    """Approve a cancellation request"""
+    result = await db.bookings.update_one(
+        {"id": order_id, "status": "pending_cancellation"},
+        {"$set": {"status": "cancelled", "updated_at": datetime.utcnow().isoformat()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pending cancellation not found")
+    
+    return {"message": "Cancellation approved"}
+
+@api_router.post("/admin/orders/{order_id}/deny_cancellation")
+async def deny_cancellation(order_id: str, admin_user: User = Depends(get_admin_user)):
+    """Deny a cancellation request"""
+    result = await db.bookings.update_one(
+        {"id": order_id, "status": "pending_cancellation"},
+        {"$set": {"status": "confirmed", "updated_at": datetime.utcnow().isoformat()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pending cancellation not found")
+    
+    return {"message": "Cancellation denied"}
+
+@api_router.post("/admin/orders/{order_id}/approve_reschedule")
+async def approve_reschedule(order_id: str, admin_user: User = Depends(get_admin_user)):
+    """Approve a reschedule request"""
+    result = await db.bookings.update_one(
+        {"id": order_id, "status": "pending_reschedule"},
+        {"$set": {"status": "confirmed", "updated_at": datetime.utcnow().isoformat()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pending reschedule not found")
+    
+    return {"message": "Reschedule approved"}
+
+@api_router.post("/admin/orders/{order_id}/deny_reschedule")
+async def deny_reschedule(order_id: str, admin_user: User = Depends(get_admin_user)):
+    """Deny a reschedule request"""
+    result = await db.bookings.update_one(
+        {"id": order_id, "status": "pending_reschedule"},
+        {"$set": {"status": "confirmed", "updated_at": datetime.utcnow().isoformat()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pending reschedule not found")
+    
+    return {"message": "Reschedule denied"}
 
 # Include the API router in the main app
 app.include_router(api_router)
