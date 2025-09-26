@@ -23,7 +23,8 @@ import {
   TrendingUp,
   Calendar as CalendarIcon,
   X,
-  RotateCcw
+  RotateCcw,
+  Menu
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -48,6 +49,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({});
   const [bookings, setBookings] = useState([]);
   const [cleaners, setCleaners] = useState([]);
@@ -55,6 +57,12 @@ const AdminDashboard = () => {
   const [tickets, setTickets] = useState([]);
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Handle tab change and close mobile menu
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
+  };
 
   // Form states
   const [newCleaner, setNewCleaner] = useState({
@@ -450,173 +458,287 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Admin Header */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
-                <Settings className="text-white" size={24} />
+        <div className="container px-4 sm:px-6">
+          <div className="flex justify-between items-center py-3 sm:py-4">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                <Settings className="text-white w-4 h-4 sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">Maids of Cyfair Management</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Maids of Cyfair Management</p>
               </div>
             </div>
             <div>
               <Button
                 variant="outline"
-                className="btn-hover"
+                className="btn-hover text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
                 onClick={() => { logout(); navigate('/admin/login'); }}
               >
-                <LogOut className="mr-2" size={16} /> Logout
+                <LogOut className="mr-1 sm:mr-2 w-3 h-3 sm:w-4 sm:h-4" /> 
+                <span className="hidden sm:inline">Logout</span>
+                <span className="sm:hidden">Exit</span>
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Enhanced Tab Navigation */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-1 p-1 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 shadow-inner">
+      <div className="container py-4 sm:py-6 px-4 sm:px-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 sm:space-y-6">
+          {/* Mobile Hamburger Menu */}
+          <div className="block sm:hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="p-2"
+                >
+                  {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </Button>
+              </div>
+              
+              {isMobileMenuOpen && (
+                <div className="mt-4 space-y-2">
+                  <Button
+                    variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('dashboard')}
+                  >
+                    <BarChart3 className="mr-2" size={16} />
+                    Dashboard
+                  </Button>
+                  <Button
+                    variant={activeTab === 'bookings' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('bookings')}
+                  >
+                    <Calendar className="mr-2" size={16} />
+                    Bookings
+                  </Button>
+                  <Button
+                    variant={activeTab === 'calendar' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('calendar')}
+                  >
+                    <CalendarDays className="mr-2" size={16} />
+                    Calendar
+                  </Button>
+                  <Button
+                    variant={activeTab === 'invoices' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('invoices')}
+                  >
+                    <Receipt className="mr-2" size={16} />
+                    Invoices
+                  </Button>
+                  <Button
+                    variant={activeTab === 'cleaners' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('cleaners')}
+                  >
+                    <UserCheck className="mr-2" size={16} />
+                    Cleaners
+                  </Button>
+                  <Button
+                    variant={activeTab === 'services' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('services')}
+                  >
+                    <Package className="mr-2" size={16} />
+                    Services
+                  </Button>
+                  <Button
+                    variant={activeTab === 'promos' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('promos')}
+                  >
+                    <DollarSign className="mr-2" size={16} />
+                    Promo Codes
+                  </Button>
+                  <Button
+                    variant={activeTab === 'reports' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('reports')}
+                  >
+                    <TrendingUp className="mr-2" size={16} />
+                    Reports
+                  </Button>
+                  <Button
+                    variant={activeTab === 'orders' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('orders')}
+                  >
+                    <CalendarIcon className="mr-2" size={16} />
+                    Orders
+                  </Button>
+                  <Button
+                    variant={activeTab === 'faqs' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('faqs')}
+                  >
+                    <FileText className="mr-2" size={16} />
+                    FAQs
+                  </Button>
+                  <Button
+                    variant={activeTab === 'tickets' ? 'default' : 'ghost'}
+                    className="w-full justify-start"
+                    onClick={() => handleTabChange('tickets')}
+                  >
+                    <MessageSquare className="mr-2" size={16} />
+                    Tickets
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop Tab Navigation */}
+          <div className="hidden sm:block">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
+            <TabsList className="grid w-full grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-1 p-1 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 shadow-inner">
             <TabsTrigger 
               value="dashboard" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <BarChart3 size={16} />
+              <BarChart3 size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Dashboard</span>
               <span className="sm:hidden" title="Dashboard">📊</span>
             </TabsTrigger>
             <TabsTrigger 
               value="bookings" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <Calendar size={16} />
+              <Calendar size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Bookings</span>
               <span className="sm:hidden" title="Bookings">📅</span>
             </TabsTrigger>
             <TabsTrigger 
               value="calendar" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <CalendarDays size={16} />
+              <CalendarDays size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Calendar</span>
               <span className="sm:hidden" title="Calendar">🗓️</span>
             </TabsTrigger>
             <TabsTrigger 
               value="invoices" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <Receipt size={16} />
+              <Receipt size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Invoices</span>
               <span className="sm:hidden" title="Invoices">🧾</span>
             </TabsTrigger>
             <TabsTrigger 
               value="cleaners" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <UserCheck size={16} />
+              <UserCheck size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Cleaners</span>
               <span className="sm:hidden" title="Cleaners">👥</span>
             </TabsTrigger>
             <TabsTrigger 
               value="services" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <Package size={16} />
+              <Package size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Services</span>
               <span className="sm:hidden" title="Services">📦</span>
             </TabsTrigger>
             <TabsTrigger 
               value="promos" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <DollarSign size={16} />
+              <DollarSign size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Promo Codes</span>
               <span className="sm:hidden" title="Promo Codes">💰</span>
             </TabsTrigger>
             <TabsTrigger 
               value="reports" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <TrendingUp size={16} />
+              <TrendingUp size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Reports</span>
               <span className="sm:hidden" title="Reports">📈</span>
             </TabsTrigger>
             <TabsTrigger 
               value="orders" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <CalendarIcon size={16} />
+              <CalendarIcon size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Orders</span>
               <span className="sm:hidden" title="Orders">📋</span>
             </TabsTrigger>
             <TabsTrigger 
               value="faqs" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <FileText size={16} />
+              <FileText size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">FAQs</span>
               <span className="sm:hidden" title="FAQs">❓</span>
             </TabsTrigger>
             <TabsTrigger 
               value="tickets" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
+              className="flex items-center justify-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
             >
-              <MessageSquare size={16} />
+              <MessageSquare size={14} className="sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Tickets</span>
               <span className="sm:hidden" title="Tickets">🎫</span>
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
+            </div>
           </div>
 
           {/* Dashboard Overview */}
-          <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <TabsContent value="dashboard" className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <Card>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Total Bookings</p>
-                      <p className="text-2xl font-bold">{stats.total_bookings || 0}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Total Bookings</p>
+                      <p className="text-xl sm:text-2xl font-bold">{stats.total_bookings || 0}</p>
                     </div>
-                    <Calendar className="text-blue-600" size={24} />
+                    <Calendar className="text-blue-600 w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                 </CardContent>
               </Card>
               
               <Card>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Total Revenue</p>
-                      <p className="text-2xl font-bold">${(stats.total_revenue || 0).toFixed(2)}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
+                      <p className="text-xl sm:text-2xl font-bold">${(stats.total_revenue || 0).toFixed(2)}</p>
                     </div>
-                    <DollarSign className="text-green-600" size={24} />
+                    <DollarSign className="text-green-600 w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                 </CardContent>
               </Card>
               
               <Card>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Active Cleaners</p>
-                      <p className="text-2xl font-bold">{stats.total_cleaners || 0}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Active Cleaners</p>
+                      <p className="text-xl sm:text-2xl font-bold">{stats.total_cleaners || 0}</p>
                     </div>
-                    <Users className="text-purple-600" size={24} />
+                    <Users className="text-purple-600 w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                 </CardContent>
               </Card>
               
               <Card>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-gray-600">Open Tickets</p>
-                      <p className="text-2xl font-bold">{stats.open_tickets || 0}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Open Tickets</p>
+                      <p className="text-xl sm:text-2xl font-bold">{stats.open_tickets || 0}</p>
                     </div>
-                    <MessageSquare className="text-orange-600" size={24} />
+                    <MessageSquare className="text-orange-600 w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                 </CardContent>
               </Card>
@@ -677,7 +799,7 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Weekly Report */}
               <Card>
                 <CardHeader>
@@ -775,7 +897,7 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               {/* Pending Cancellations */}
               <Card>
                 <CardHeader>
@@ -907,39 +1029,39 @@ const AdminDashboard = () => {
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full min-w-[800px]">
                     <thead className="border-b">
                       <tr>
-                        <th className="text-left p-4">Booking ID</th>
-                        <th className="text-left p-4">Customer</th>
-                        <th className="text-left p-4">Date & Time</th>
-                        <th className="text-left p-4">Services</th>
-                        <th className="text-left p-4">Amount</th>
-                        <th className="text-left p-4">Status</th>
-                        <th className="text-left p-4">Cleaner</th>
-                        <th className="text-left p-4">Actions</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Booking ID</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Customer</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Date & Time</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Services</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Amount</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Status</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Cleaner</th>
+                        <th className="text-left p-2 sm:p-4 text-xs sm:text-sm">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {bookings.map((booking) => (
                         <tr key={booking.id} className="border-b">
-                          <td className="p-4">#{booking.id.slice(-8)}</td>
-                          <td className="p-4">{booking.customer_id.slice(-8)}</td>
-                          <td className="p-4">
+                          <td className="p-2 sm:p-4 text-xs sm:text-sm">#{booking.id.slice(-8)}</td>
+                          <td className="p-2 sm:p-4 text-xs sm:text-sm">{booking.customer_id.slice(-8)}</td>
+                          <td className="p-2 sm:p-4">
                             <div>
-                              <p>{booking.booking_date}</p>
-                              <p className="text-sm text-gray-600">{booking.time_slot}</p>
+                              <p className="text-xs sm:text-sm">{booking.booking_date}</p>
+                              <p className="text-xs text-gray-600">{booking.time_slot}</p>
                             </div>
                           </td>
-                          <td className="p-4">{booking.house_size} • {booking.frequency}</td>
-                          <td className="p-4 font-medium">${booking.total_amount}</td>
-                          <td className="p-4">{getStatusBadge(booking.status)}</td>
-                          <td className="p-4">
+                          <td className="p-2 sm:p-4 text-xs sm:text-sm">{booking.house_size} • {booking.frequency}</td>
+                          <td className="p-2 sm:p-4 text-xs sm:text-sm font-medium">${booking.total_amount}</td>
+                          <td className="p-2 sm:p-4">{getStatusBadge(booking.status)}</td>
+                          <td className="p-2 sm:p-4">
                             <Select
                               value={booking.cleaner_id || undefined}
                               onValueChange={(value) => assignCleaner(booking.id, value === 'none' ? null : value)}
                             >
-                              <SelectTrigger className="w-32">
+                              <SelectTrigger className="w-24 sm:w-32 text-xs">
                                 <SelectValue placeholder="Assign" />
                               </SelectTrigger>
                               <SelectContent>
@@ -952,21 +1074,24 @@ const AdminDashboard = () => {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="p-4">
-                            <div className="flex space-x-2">
+                          <td className="p-2 sm:p-4">
+                            <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-2">
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateBookingStatus(booking.id, 'confirmed')}
                                 disabled={booking.status === 'confirmed'}
+                                className="text-xs px-2 py-1"
                               >
-                                <CheckCircle size={14} />
+                                <CheckCircle size={12} className="sm:hidden" />
+                                <span className="hidden sm:inline">Confirm</span>
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => updateBookingStatus(booking.id, 'completed')}
                                 disabled={booking.status === 'completed'}
+                                className="text-xs px-2 py-1"
                               >
                                 Complete
                               </Button>
@@ -992,12 +1117,12 @@ const AdminDashboard = () => {
                     Add Cleaner
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md mx-4">
                   <DialogHeader>
                     <DialogTitle>Add New Cleaner</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Input
                         placeholder="First Name"
                         value={newCleaner.first_name}
@@ -1028,7 +1153,7 @@ const AdminDashboard = () => {
               </Dialog>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {cleaners.map((cleaner) => (
                 <Card key={cleaner.id}>
                   <CardContent className="p-6">
@@ -1079,7 +1204,7 @@ const AdminDashboard = () => {
                     Add Service
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-md mx-4">
                   <DialogHeader>
                     <DialogTitle>Add New Service</DialogTitle>
                   </DialogHeader>
@@ -1134,7 +1259,7 @@ const AdminDashboard = () => {
               </Dialog>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {services.map((service) => (
                 <Card key={service.id}>
                   <CardContent className="p-6">
@@ -1179,7 +1304,7 @@ const AdminDashboard = () => {
                     Add FAQ
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md mx-4">
                   <DialogHeader>
                     <DialogTitle>Add New FAQ</DialogTitle>
                   </DialogHeader>
