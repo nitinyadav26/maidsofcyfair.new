@@ -1684,7 +1684,7 @@ async def generate_invoice_pdf(
             ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
             ('BACKGROUND', (1, 0), (1, -1), light_gray),
             ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'
+            ('VALIGN', (0, 0), (-1, -1), 'TOP')
         ]))
         
         story.append(client_table)
