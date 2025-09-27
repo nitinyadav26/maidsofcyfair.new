@@ -59,6 +59,72 @@ const BookingFlow = ({ isGuest = false }) => {
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoLoading, setPromoLoading] = useState(false);
 
+  // Demo booking function
+  const createDemoBooking = async () => {
+    setLoading(true);
+    try {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+      const demoBookingData = {
+        customer: {
+          email: "demo@example.com",
+          first_name: "Demo",
+          last_name: "Customer",
+          phone: "555-0123",
+          address: "123 Demo Street",
+          city: "Houston",
+          state: "TX",
+          zip_code: "77001",
+          is_guest: true
+        },
+        house_size: "medium",
+        frequency: "one_time",
+        base_price: 150.0,
+        rooms: {
+          masterBedroom: true,
+          masterBathroom: true,
+          otherBedrooms: 2,
+          otherFullBathrooms: 1,
+          halfBathrooms: 1,
+          diningRoom: true,
+          kitchen: true,
+          livingRoom: true,
+          mediaRoom: false,
+          gameRoom: false,
+          office: false
+        },
+        services: [
+          {
+            service_id: "standard_cleaning",
+            quantity: 1
+          }
+        ],
+        a_la_carte_services: [
+          {
+            service_id: "deep_cleaning",
+            quantity: 1
+          }
+        ],
+        booking_date: tomorrowStr,
+        time_slot: "9:00 AM - 11:00 AM",
+        special_instructions: "Demo booking for testing purposes",
+        promo_code: null
+      };
+
+      const response = await axios.post(`${API}/bookings/guest`, demoBookingData);
+      
+      // Skip payment processing for demo booking
+      toast.success('Demo booking created successfully!');
+      navigate(`/confirmation/${response.data.id}`);
+    } catch (error) {
+      toast.error('Demo booking failed. Please try again.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const services = allServices.filter(s => !s.is_a_la_carte);
   const aLaCarteServices = allServices.filter(s => s.is_a_la_carte);
@@ -393,6 +459,18 @@ const BookingFlow = ({ isGuest = false }) => {
                   </CardTitle>
                   <p className="text-gray-600">Choose your cleaning service and home size for pricing</p>
                   
+                  {/* Demo Booking Button */}
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h4 className="font-semibold text-yellow-800 mb-2">Quick Demo</h4>
+                    <p className="text-sm text-yellow-700 mb-3">Want to see how the booking system works? Create a demo booking!</p>
+                    <Button 
+                      onClick={createDemoBooking}
+                      disabled={loading}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                    >
+                      {loading ? 'Creating Demo...' : 'Create Demo Booking'}
+                    </Button>
+                  </div>
                 </CardHeader>
 
                 <div className="space-y-6">
@@ -829,7 +907,42 @@ const BookingFlow = ({ isGuest = false }) => {
                   <p className="text-gray-600">We need this to confirm your booking</p>
                 </CardHeader>
 
-
+                {/* Guest Checkout Option */}
+                <div className="mb-6">
+                  <Card className="border-2 border-dashed border-gray-300">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            id="guestCheckout"
+                            checked={isGuestCheckout}
+                            onChange={(e) => setIsGuestCheckout(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="guestCheckout" className="text-sm font-medium text-gray-700">
+                            Continue as Guest (No account required)
+                          </label>
+                        </div>
+                        <Badge variant={isGuestCheckout ? "default" : "secondary"}>
+                          {isGuestCheckout ? "Guest Checkout" : "Account Required"}
+                        </Badge>
+                      </div>
+                      {isGuestCheckout && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          You can create an account later to manage your bookings
+                        </p>
+                      )}
+                      {!isGuestCheckout && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          <a href="/login" className="text-blue-600 hover:text-blue-800 underline">
+                            Login to your account
+                          </a> to manage your bookings and view history
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">
