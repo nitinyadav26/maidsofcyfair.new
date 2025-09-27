@@ -53,7 +53,6 @@ const BookingFlow = ({ isGuest = false }) => {
     state: '',
     zipCode: ''
   });
-  const [isGuestCheckout, setIsGuestCheckout] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
@@ -348,7 +347,7 @@ const BookingFlow = ({ isGuest = false }) => {
           city: customerInfo.city,
           state: customerInfo.state,
           zip_code: customerInfo.zipCode,
-          is_guest: isGuestCheckout
+          is_guest: false
         },
         house_size: houseSize,
         frequency: frequency,
@@ -368,7 +367,7 @@ const BookingFlow = ({ isGuest = false }) => {
         promo_code: appliedPromo?.code || null
       };
 
-      const endpoint = isGuestCheckout ? `${API}/bookings/guest` : `${API}/bookings`;
+      const endpoint = `${API}/bookings`;
       const response = await axios.post(endpoint, bookingData);
       
       // Skip payment processing for now - just confirm the booking
@@ -459,18 +458,7 @@ const BookingFlow = ({ isGuest = false }) => {
                   </CardTitle>
                   <p className="text-gray-600">Choose your cleaning service and home size for pricing</p>
                   
-                  {/* Demo Booking Button */}
-                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <h4 className="font-semibold text-yellow-800 mb-2">Quick Demo</h4>
-                    <p className="text-sm text-yellow-700 mb-3">Want to see how the booking system works? Create a demo booking!</p>
-                    <Button 
-                      onClick={createDemoBooking}
-                      disabled={loading}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                    >
-                      {loading ? 'Creating Demo...' : 'Create Demo Booking'}
-                    </Button>
-                  </div>
+                
                 </CardHeader>
 
                 <div className="space-y-6">
@@ -907,42 +895,6 @@ const BookingFlow = ({ isGuest = false }) => {
                   <p className="text-gray-600">We need this to confirm your booking</p>
                 </CardHeader>
 
-                {/* Guest Checkout Option */}
-                <div className="mb-6">
-                  <Card className="border-2 border-dashed border-gray-300">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <input
-                            type="checkbox"
-                            id="guestCheckout"
-                            checked={isGuestCheckout}
-                            onChange={(e) => setIsGuestCheckout(e.target.checked)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="guestCheckout" className="text-sm font-medium text-gray-700">
-                            Continue as Guest (No account required)
-                          </label>
-                        </div>
-                        <Badge variant={isGuestCheckout ? "default" : "secondary"}>
-                          {isGuestCheckout ? "Guest Checkout" : "Account Required"}
-                        </Badge>
-                      </div>
-                      {isGuestCheckout && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          You can create an account later to manage your bookings
-                        </p>
-                      )}
-                      {!isGuestCheckout && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          <a href="/login" className="text-blue-600 hover:text-blue-800 underline">
-                            Login to your account
-                          </a> to manage your bookings and view history
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-4">

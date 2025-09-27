@@ -717,17 +717,35 @@ async def delete_promo_code(promo_id: str, admin_user: User = Depends(get_admin_
 @api_router.get("/services", response_model=List[Service])
 async def get_services():
     services = await db.services.find().to_list(1000)
-    return [Service(**service) for service in services]
+    # Handle missing category field by providing a default value
+    processed_services = []
+    for service in services:
+        if 'category' not in service:
+            service['category'] = 'general'  # Default category
+        processed_services.append(Service(**service))
+    return processed_services
 
 @api_router.get("/services/standard", response_model=List[Service])
 async def get_standard_services():
     services = await db.services.find({"is_a_la_carte": False}).to_list(1000)
-    return [Service(**service) for service in services]
+    # Handle missing category field by providing a default value
+    processed_services = []
+    for service in services:
+        if 'category' not in service:
+            service['category'] = 'general'  # Default category
+        processed_services.append(Service(**service))
+    return processed_services
 
 @api_router.get("/services/a-la-carte", response_model=List[Service])
 async def get_a_la_carte_services():
     services = await db.services.find({"is_a_la_carte": True}).to_list(1000)
-    return [Service(**service) for service in services]
+    # Handle missing category field by providing a default value
+    processed_services = []
+    for service in services:
+        if 'category' not in service:
+            service['category'] = 'general'  # Default category
+        processed_services.append(Service(**service))
+    return processed_services
 
 @api_router.get("/pricing/{house_size}/{frequency}")
 async def get_pricing(house_size: HouseSize, frequency: ServiceFrequency):
@@ -941,6 +959,28 @@ async def get_customer(customer_id: str):
             "is_guest": False
         }
 
+@api_router.get("/customer/next-appointment")
+async def get_next_appointment(current_user: User = Depends(get_current_user)):
+    """Get the next upcoming appointment for the current customer"""
+    # Find the next upcoming booking for this customer
+    next_booking = await db.bookings.find_one(
+        {
+            "customer_id": current_user.id,
+            "booking_date": {"$gte": datetime.now().strftime("%Y-%m-%d")},
+            "status": {"$in": ["pending", "confirmed"]}
+        },
+        sort=[("booking_date", 1), ("time_slot", 1)]
+    )
+    
+    if not next_booking:
+        return {"message": "No upcoming appointments found"}
+    
+    # Convert ObjectId to string for JSON serialization
+    if '_id' in next_booking:
+        next_booking['_id'] = str(next_booking['_id'])
+    
+    return next_booking
+
 # Admin endpoints
 @api_router.get("/admin/stats")
 async def get_admin_stats(admin_user: User = Depends(get_admin_user)):
@@ -998,7 +1038,13 @@ async def delete_cleaner(cleaner_id: str, admin_user: User = Depends(get_admin_u
 @api_router.get("/admin/services", response_model=List[Service])
 async def get_admin_services(admin_user: User = Depends(get_admin_user)):
     services = await db.services.find().to_list(1000)
-    return [Service(**service) for service in services]
+    # Handle missing category field by providing a default value
+    processed_services = []
+    for service in services:
+        if 'category' not in service:
+            service['category'] = 'general'  # Default category
+        processed_services.append(Service(**service))
+    return processed_services
 
 @api_router.post("/admin/services", response_model=Service)
 async def create_service(service_data: dict, admin_user: User = Depends(get_admin_user)):

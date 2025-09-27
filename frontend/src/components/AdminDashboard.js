@@ -446,6 +446,36 @@ const AdminDashboard = () => {
     }
   }, [activeTab]);
 
+  // Keyboard navigation support
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.ctrlKey || event.metaKey) {
+        const tabOrder = [
+          'dashboard', 'bookings', 'calendar', 'invoices', 'cleaners', 
+          'services', 'promos', 'reports', 'orders', 'faqs', 'tickets'
+        ];
+        const currentIndex = tabOrder.indexOf(activeTab);
+        
+        if (event.key === 'ArrowLeft' && currentIndex > 0) {
+          event.preventDefault();
+          setActiveTab(tabOrder[currentIndex - 1]);
+        } else if (event.key === 'ArrowRight' && currentIndex < tabOrder.length - 1) {
+          event.preventDefault();
+          setActiveTab(tabOrder[currentIndex + 1]);
+        } else if (event.key >= '1' && event.key <= '9') {
+          event.preventDefault();
+          const tabIndex = parseInt(event.key) - 1;
+          if (tabIndex < tabOrder.length) {
+            setActiveTab(tabOrder[tabIndex]);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Admin Header */}
@@ -476,102 +506,180 @@ const AdminDashboard = () => {
 
       <div className="container py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <style jsx>{`
+            .tab-content {
+              animation: fadeIn 0.3s ease-in-out;
+            }
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(10px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
           {/* Enhanced Tab Navigation */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-1 p-1 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200 shadow-inner">
-            <TabsTrigger 
-              value="dashboard" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <BarChart3 size={16} />
-              <span className="hidden sm:inline">Dashboard</span>
-              <span className="sm:hidden" title="Dashboard">📊</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="bookings" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <Calendar size={16} />
-              <span className="hidden sm:inline">Bookings</span>
-              <span className="sm:hidden" title="Bookings">📅</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="calendar" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <CalendarDays size={16} />
-              <span className="hidden sm:inline">Calendar</span>
-              <span className="sm:hidden" title="Calendar">🗓️</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="invoices" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <Receipt size={16} />
-              <span className="hidden sm:inline">Invoices</span>
-              <span className="sm:hidden" title="Invoices">🧾</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="cleaners" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <UserCheck size={16} />
-              <span className="hidden sm:inline">Cleaners</span>
-              <span className="sm:hidden" title="Cleaners">👥</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="services" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <Package size={16} />
-              <span className="hidden sm:inline">Services</span>
-              <span className="sm:hidden" title="Services">📦</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="promos" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <DollarSign size={16} />
-              <span className="hidden sm:inline">Promo Codes</span>
-              <span className="sm:hidden" title="Promo Codes">💰</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="reports" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <TrendingUp size={16} />
-              <span className="hidden sm:inline">Reports</span>
-              <span className="sm:hidden" title="Reports">📈</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="orders" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <CalendarIcon size={16} />
-              <span className="hidden sm:inline">Orders</span>
-              <span className="sm:hidden" title="Orders">📋</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="faqs" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <FileText size={16} />
-              <span className="hidden sm:inline">FAQs</span>
-              <span className="sm:hidden" title="FAQs">❓</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="tickets" 
-              className="flex items-center space-x-2 px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white hover:shadow-sm hover:text-blue-600 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 data-[state=active]:border-blue-200 rounded-md border border-transparent"
-            >
-              <MessageSquare size={16} />
-              <span className="hidden sm:inline">Tickets</span>
-              <span className="sm:hidden" title="Tickets">🎫</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-3">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-lg font-semibold text-gray-800">Admin Panel</h2>
+              <div className="text-xs text-gray-500 hidden lg:block">
+                Use Ctrl+1-9 to navigate tabs • Ctrl+←/→ for previous/next
+              </div>
+            </div>
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2 p-2 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 rounded-xl border border-gray-200 shadow-inner">
+              <TabsTrigger 
+                value="dashboard" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label="Dashboard overview and statistics"
+                title="Dashboard (Ctrl+1)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <BarChart3 size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Dashboard</span>
+                <span className="sm:hidden relative z-10" title="Dashboard">📊</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="bookings" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label={`Bookings management (${bookings.length} bookings)`}
+                title="Bookings (Ctrl+2)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Calendar size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Bookings</span>
+                <span className="sm:hidden relative z-10" title="Bookings">📅</span>
+                {bookings.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {bookings.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="calendar" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label="Calendar job assignment and scheduling"
+                title="Calendar (Ctrl+3)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <CalendarDays size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Calendar</span>
+                <span className="sm:hidden relative z-10" title="Calendar">🗓️</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="invoices" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label="Invoice management and generation"
+                title="Invoices (Ctrl+4)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Receipt size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Invoices</span>
+                <span className="sm:hidden relative z-10" title="Invoices">🧾</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="cleaners" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label={`Cleaner management (${cleaners.length} cleaners)`}
+                title="Cleaners (Ctrl+5)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <UserCheck size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Cleaners</span>
+                <span className="sm:hidden relative z-10" title="Cleaners">👥</span>
+                {cleaners.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {cleaners.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="services" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label={`Service management (${services.length} services)`}
+                title="Services (Ctrl+6)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <Package size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Services</span>
+                <span className="sm:hidden relative z-10" title="Services">📦</span>
+                {services.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {services.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="promos" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label="Promo code management"
+                title="Promo Codes (Ctrl+7)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <DollarSign size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Promo Codes</span>
+                <span className="sm:hidden relative z-10" title="Promo Codes">💰</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="reports" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label="Reports and analytics"
+                title="Reports (Ctrl+8)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <TrendingUp size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Reports</span>
+                <span className="sm:hidden relative z-10" title="Reports">📈</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="orders" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label={`Order management (${pendingCancellations.length + pendingReschedules.length} pending)`}
+                title="Orders (Ctrl+9)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <CalendarIcon size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Orders</span>
+                <span className="sm:hidden relative z-10" title="Orders">📋</span>
+                {(pendingCancellations.length > 0 || pendingReschedules.length > 0) && (
+                  <Badge className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {pendingCancellations.length + pendingReschedules.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="faqs" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label={`FAQ management (${faqs.length} FAQs)`}
+                title="FAQs (Ctrl+0)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <FileText size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">FAQs</span>
+                <span className="sm:hidden relative z-10" title="FAQs">❓</span>
+                {faqs.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {faqs.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="tickets" 
+                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                aria-label={`Support tickets (${tickets.length} tickets)`}
+                title="Tickets (Ctrl+Shift+1)"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <MessageSquare size={18} className="relative z-10" />
+                <span className="hidden sm:inline relative z-10">Tickets</span>
+                <span className="sm:hidden relative z-10" title="Tickets">🎫</span>
+                {tickets.length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {tickets.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
           </div>
 
           {/* Dashboard Overview */}
-          <TabsContent value="dashboard" className="space-y-6">
+          <TabsContent value="dashboard" className="space-y-6 tab-content">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card>
                 <CardContent className="p-6">
@@ -647,22 +755,22 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Calendar Job Assignment */}
-          <TabsContent value="calendar" className="space-y-6">
+          <TabsContent value="calendar" className="space-y-6 tab-content">
             <CalendarJobAssignment />
           </TabsContent>
 
           {/* Invoice Management */}
-          <TabsContent value="invoices" className="space-y-6">
+          <TabsContent value="invoices" className="space-y-6 tab-content">
             <InvoiceManagement />
           </TabsContent>
 
           {/* Promo Code Management */}
-          <TabsContent value="promos" className="space-y-6">
+          <TabsContent value="promos" className="space-y-6 tab-content">
             <PromoCodeManagement />
           </TabsContent>
 
           {/* Reports */}
-          <TabsContent value="reports" className="space-y-6">
+          <TabsContent value="reports" className="space-y-6 tab-content">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Reports & Analytics</h2>
               <div className="flex space-x-2">
@@ -764,7 +872,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Order Management */}
-          <TabsContent value="orders" className="space-y-6">
+          <TabsContent value="orders" className="space-y-6 tab-content">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Order Management</h2>
               <div className="flex space-x-2">
@@ -895,7 +1003,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Bookings Management */}
-          <TabsContent value="bookings" className="space-y-6">
+          <TabsContent value="bookings" className="space-y-6 tab-content">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Booking Management</h2>
               <Button onClick={exportBookings} className="btn-hover">
@@ -982,7 +1090,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Cleaners Management */}
-          <TabsContent value="cleaners" className="space-y-6">
+          <TabsContent value="cleaners" className="space-y-6 tab-content">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Cleaner Management</h2>
               <Dialog>
@@ -1069,7 +1177,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Services Management */}
-          <TabsContent value="services" className="space-y-6">
+          <TabsContent value="services" className="space-y-6 tab-content">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">Service Management</h2>
               <Dialog>
@@ -1169,7 +1277,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* FAQs Management */}
-          <TabsContent value="faqs" className="space-y-6">
+          <TabsContent value="faqs" className="space-y-6 tab-content">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold">FAQ Management</h2>
               <Dialog>
@@ -1233,7 +1341,7 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Support Tickets */}
-          <TabsContent value="tickets" className="space-y-6">
+          <TabsContent value="tickets" className="space-y-6 tab-content">
             <h2 className="text-2xl font-bold">Support Tickets</h2>
 
             <div className="space-y-4">
