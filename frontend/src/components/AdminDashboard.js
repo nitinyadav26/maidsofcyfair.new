@@ -23,7 +23,8 @@ import {
   TrendingUp,
   Calendar as CalendarIcon,
   X,
-  RotateCcw
+  RotateCcw,
+  Menu
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -48,6 +49,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({});
   const [bookings, setBookings] = useState([]);
   const [cleaners, setCleaners] = useState([]);
@@ -104,6 +106,27 @@ const AdminDashboard = () => {
   const [pendingCancellations, setPendingCancellations] = useState([]);
   const [pendingReschedules, setPendingReschedules] = useState([]);
   const [orderHistory, setOrderHistory] = useState([]);
+
+  // Mobile menu data
+  const mobileTabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, shortcut: '1' },
+    { id: 'bookings', label: 'Bookings', icon: Calendar, shortcut: '2', count: bookings.length },
+    { id: 'calendar', label: 'Calendar', icon: CalendarDays, shortcut: '3' },
+    { id: 'invoices', label: 'Invoices', icon: Receipt, shortcut: '4' },
+    { id: 'cleaners', label: 'Cleaners', icon: UserCheck, shortcut: '5', count: cleaners.length },
+    { id: 'services', label: 'Services', icon: Package, shortcut: '6', count: services.length },
+    { id: 'promos', label: 'Promo Codes', icon: DollarSign, shortcut: '7' },
+    { id: 'reports', label: 'Reports', icon: TrendingUp, shortcut: '8' },
+    { id: 'orders', label: 'Orders', icon: CalendarIcon, shortcut: '9', count: pendingCancellations.length + pendingReschedules.length },
+    { id: 'faqs', label: 'FAQs', icon: FileText, shortcut: '0', count: faqs.length },
+    { id: 'tickets', label: 'Tickets', icon: MessageSquare, shortcut: 'Shift+1', count: tickets.length }
+  ];
+
+  // Handle tab change and close mobile menu
+  const handleTabChange = (tabValue) => {
+    setActiveTab(tabValue);
+    setIsMobileMenuOpen(false);
+  };
 
   useEffect(() => {
     loadDashboardData();
@@ -458,15 +481,15 @@ const AdminDashboard = () => {
         
         if (event.key === 'ArrowLeft' && currentIndex > 0) {
           event.preventDefault();
-          setActiveTab(tabOrder[currentIndex - 1]);
+          handleTabChange(tabOrder[currentIndex - 1]);
         } else if (event.key === 'ArrowRight' && currentIndex < tabOrder.length - 1) {
           event.preventDefault();
-          setActiveTab(tabOrder[currentIndex + 1]);
+          handleTabChange(tabOrder[currentIndex + 1]);
         } else if (event.key >= '1' && event.key <= '9') {
           event.preventDefault();
           const tabIndex = parseInt(event.key) - 1;
           if (tabIndex < tabOrder.length) {
-            setActiveTab(tabOrder[tabIndex]);
+            handleTabChange(tabOrder[tabIndex]);
           }
         }
       }
@@ -475,6 +498,18 @@ const AdminDashboard = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [activeTab]);
+
+  // Close mobile menu on window resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -504,8 +539,8 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      <div className="container py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <div className="container py-3 sm:py-6 px-2 sm:px-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <style jsx>{`
             .tab-content {
               animation: fadeIn 0.3s ease-in-out;
@@ -514,168 +549,291 @@ const AdminDashboard = () => {
               from { opacity: 0; transform: translateY(10px); }
               to { opacity: 1; transform: translateY(0); }
             }
+            @media (max-width: 640px) {
+              .tab-content {
+                padding: 0.5rem;
+              }
+              .tab-content .container {
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+              }
+            }
+            .mobile-menu-overlay {
+              animation: fadeIn 0.2s ease-in-out;
+            }
+            .mobile-menu-drawer {
+              animation: slideIn 0.3s ease-in-out;
+            }
+            @keyframes slideIn {
+              from { transform: translateX(-100%); }
+              to { transform: translateX(0); }
+            }
           `}</style>
+          
+          {/* Mobile Menu Overlay */}
+          {isMobileMenuOpen && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 mobile-menu-overlay lg:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+          )}
+
+          {/* Mobile Navigation Drawer */}
+          <div className={`fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50 mobile-menu-drawer transform transition-transform duration-300 lg:hidden ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}>
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-800">Admin Panel</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2"
+                >
+                  <X size={20} />
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Use Ctrl+1-9 to navigate tabs
+              </p>
+            </div>
+            
+            <div className="p-4 space-y-2 max-h-[calc(100vh-80px)] overflow-y-auto">
+              {mobileTabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabChange(tab.id)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
+                      isActive 
+                        ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <IconComponent size={20} />
+                      <span className="font-medium">{tab.label}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {tab.count !== undefined && tab.count > 0 && (
+                        <Badge className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                          {tab.count}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-gray-400">Ctrl+{tab.shortcut}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Enhanced Tab Navigation */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-3">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-2 sm:p-3">
             <div className="flex justify-between items-center mb-3">
               <h2 className="text-lg font-semibold text-gray-800">Admin Panel</h2>
-              <div className="text-xs text-gray-500 hidden lg:block">
-                Use Ctrl+1-9 to navigate tabs • Ctrl+←/→ for previous/next
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="lg:hidden p-2"
+                >
+                  <Menu size={20} />
+                </Button>
+                <div className="text-xs text-gray-500 hidden lg:block">
+                  Use Ctrl+1-9 to navigate tabs • Ctrl+←/→ for previous/next
+                </div>
               </div>
             </div>
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-2 p-2 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 rounded-xl border border-gray-200 shadow-inner">
+            {/* Desktop Tab Navigation */}
+            <TabsList className="hidden lg:grid w-full grid-cols-11 gap-2 p-2 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 rounded-xl border border-gray-200 shadow-inner">
               <TabsTrigger 
                 value="dashboard" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label="Dashboard overview and statistics"
                 title="Dashboard (Ctrl+1)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <BarChart3 size={18} className="relative z-10" />
+                <BarChart3 size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Dashboard</span>
-                <span className="sm:hidden relative z-10" title="Dashboard">📊</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Dashboard">📊</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="bookings" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label={`Bookings management (${bookings.length} bookings)`}
                 title="Bookings (Ctrl+2)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <Calendar size={18} className="relative z-10" />
+                <Calendar size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Bookings</span>
-                <span className="sm:hidden relative z-10" title="Bookings">📅</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Bookings">📅</span>
                 {bookings.length > 0 && (
-                  <Badge className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs px-1 sm:px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
                     {bookings.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="calendar" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label="Calendar job assignment and scheduling"
                 title="Calendar (Ctrl+3)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <CalendarDays size={18} className="relative z-10" />
+                <CalendarDays size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Calendar</span>
-                <span className="sm:hidden relative z-10" title="Calendar">🗓️</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Calendar">🗓️</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="invoices" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label="Invoice management and generation"
                 title="Invoices (Ctrl+4)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <Receipt size={18} className="relative z-10" />
+                <Receipt size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Invoices</span>
-                <span className="sm:hidden relative z-10" title="Invoices">🧾</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Invoices">🧾</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="cleaners" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label={`Cleaner management (${cleaners.length} cleaners)`}
                 title="Cleaners (Ctrl+5)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <UserCheck size={18} className="relative z-10" />
+                <UserCheck size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Cleaners</span>
-                <span className="sm:hidden relative z-10" title="Cleaners">👥</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Cleaners">👥</span>
                 {cleaners.length > 0 && (
-                  <Badge className="absolute -top-1 -right-1 bg-green-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 bg-green-600 text-white text-xs px-1 sm:px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
                     {cleaners.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="services" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label={`Service management (${services.length} services)`}
                 title="Services (Ctrl+6)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <Package size={18} className="relative z-10" />
+                <Package size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Services</span>
-                <span className="sm:hidden relative z-10" title="Services">📦</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Services">📦</span>
                 {services.length > 0 && (
-                  <Badge className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs px-1 sm:px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
                     {services.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="promos" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label="Promo code management"
                 title="Promo Codes (Ctrl+7)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <DollarSign size={18} className="relative z-10" />
+                <DollarSign size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Promo Codes</span>
-                <span className="sm:hidden relative z-10" title="Promo Codes">💰</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Promo Codes">💰</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="reports" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label="Reports and analytics"
                 title="Reports (Ctrl+8)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <TrendingUp size={18} className="relative z-10" />
+                <TrendingUp size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Reports</span>
-                <span className="sm:hidden relative z-10" title="Reports">📈</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Reports">📈</span>
               </TabsTrigger>
               <TabsTrigger 
                 value="orders" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label={`Order management (${pendingCancellations.length + pendingReschedules.length} pending)`}
                 title="Orders (Ctrl+9)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <CalendarIcon size={18} className="relative z-10" />
+                <CalendarIcon size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Orders</span>
-                <span className="sm:hidden relative z-10" title="Orders">📋</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Orders">📋</span>
                 {(pendingCancellations.length > 0 || pendingReschedules.length > 0) && (
-                  <Badge className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 bg-orange-600 text-white text-xs px-1 sm:px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
                     {pendingCancellations.length + pendingReschedules.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="faqs" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label={`FAQ management (${faqs.length} FAQs)`}
                 title="FAQs (Ctrl+0)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <FileText size={18} className="relative z-10" />
+                <FileText size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">FAQs</span>
-                <span className="sm:hidden relative z-10" title="FAQs">❓</span>
+                <span className="sm:hidden relative z-10 text-xs" title="FAQs">❓</span>
                 {faqs.length > 0 && (
-                  <Badge className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 bg-indigo-600 text-white text-xs px-1 sm:px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
                     {faqs.length}
                   </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger 
                 value="tickets" 
-                className="group flex items-center justify-center space-x-2 px-4 py-3 text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden"
+                className="group flex items-start justify-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 hover:bg-white hover:shadow-lg hover:text-blue-700 hover:scale-105 data-[state=active]:bg-white data-[state=active]:shadow-xl data-[state=active]:text-blue-700 data-[state=active]:border-blue-300 data-[state=active]:scale-105 rounded-lg border border-transparent relative overflow-hidden min-h-[44px] touch-manipulation"
                 aria-label={`Support tickets (${tickets.length} tickets)`}
                 title="Tickets (Ctrl+Shift+1)"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <MessageSquare size={18} className="relative z-10" />
+                <MessageSquare size={16} className="relative z-10 sm:size-[18px]" />
                 <span className="hidden sm:inline relative z-10">Tickets</span>
-                <span className="sm:hidden relative z-10" title="Tickets">🎫</span>
+                <span className="sm:hidden relative z-10 text-xs" title="Tickets">🎫</span>
                 {tickets.length > 0 && (
-                  <Badge className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                  <Badge className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1 sm:px-1.5 py-0.5 rounded-full min-w-[16px] sm:min-w-[20px] h-4 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs">
                     {tickets.length}
                   </Badge>
                 )}
               </TabsTrigger>
             </TabsList>
+            
+            {/* Mobile Current Tab Indicator */}
+            <div className="lg:hidden mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {(() => {
+                    const currentTab = mobileTabs.find(tab => tab.id === activeTab);
+                    const IconComponent = currentTab?.icon;
+                    return (
+                      <>
+                        {IconComponent && <IconComponent size={20} className="text-blue-600" />}
+                        <span className="font-semibold text-blue-800">{currentTab?.label}</span>
+                        {currentTab?.count !== undefined && currentTab.count > 0 && (
+                          <Badge className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                            {currentTab.count}
+                          </Badge>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="text-blue-600"
+                >
+                  <Menu size={16} />
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Dashboard Overview */}

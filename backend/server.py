@@ -1522,12 +1522,13 @@ async def generate_invoice_pdf(
     """Generate PDF for invoice"""
     try:
         from reportlab.lib.pagesizes import letter, A4
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib.units import inch
         from reportlab.lib import colors
         from io import BytesIO
         import base64
+        from datetime import datetime
         
         # Get invoice details
         invoice = await db.invoices.find_one({"id": invoice_id})
@@ -1536,106 +1537,260 @@ async def generate_invoice_pdf(
         
         # Create PDF in memory
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
         styles = getSampleStyleSheet()
         
+        # Professional color scheme
+        primary_blue = colors.HexColor('#2563eb')  # Professional blue
+        light_blue = colors.HexColor('#dbeafe')    # Light blue background
+        dark_gray = colors.HexColor('#374151')     # Dark gray text
+        light_gray = colors.HexColor('#f3f4f6')    # Light gray background
+        
         # Custom styles
-        title_style = ParagraphStyle(
-            'CustomTitle',
+        company_style = ParagraphStyle(
+            'CompanyStyle',
             parent=styles['Heading1'],
-            fontSize=24,
-            spaceAfter=30,
-            alignment=1  # Center alignment
+            fontSize=28,
+            textColor=primary_blue,
+            spaceAfter=10,
+            alignment=1,  # Center alignment
+            fontName='Helvetica-Bold'
         )
         
-        header_style = ParagraphStyle(
-            'CustomHeader',
+        invoice_title_style = ParagraphStyle(
+            'InvoiceTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            textColor=dark_gray,
+            spaceAfter=20,
+            alignment=1,  # Center alignment
+            fontName='Helvetica-Bold'
+        )
+        
+        section_header_style = ParagraphStyle(
+            'SectionHeader',
             parent=styles['Heading2'],
             fontSize=14,
-            spaceAfter=12
+            textColor=primary_blue,
+            spaceAfter=8,
+            fontName='Helvetica-Bold'
+        )
+        
+        client_info_style = ParagraphStyle(
+            'ClientInfo',
+            parent=styles['Normal'],
+            fontSize=11,
+            textColor=dark_gray,
+            spaceAfter=4,
+            fontName='Helvetica'
         )
         
         # Build PDF content
         story = []
         
-        # Title
-        story.append(Paragraph("INVOICE", title_style))
+        # Company Header with Logo
+        logo_loaded = False
+        try:
+            # Try multiple possible paths for the logo
+            possible_paths = [
+                "../frontend/src/assets/logo.png",
+                "frontend/src/assets/logo.png",
+                "logo.png"
+            ]
+            
+            logo = None
+            for logo_path in possible_paths:
+                try:
+                    logo = Image(logo_path, width=2*inch, height=2*inch)
+                    story.append(logo)
+                    logo_loaded = True
+                    break
+                except:
+                    continue
+                    
+            if not logo_loaded:
+                raise Exception("Logo not found in any expected location")
+                
+            story.append(Spacer(1, 10))
+        except Exception as e:
+            # Fallback to text if logo not found
+            print(f"Logo not found: {e}")
+            story.append(Paragraph("Maids of Cy-Fair", company_style))
+            story.append(Spacer(1, 10))
+        
+        # Company Name (if logo is present, this can be smaller)
+        if logo_loaded:
+            company_name_style = ParagraphStyle(
+                'CompanyNameStyle',
+                parent=styles['Heading2'],
+                fontSize=18,
+                textColor=primary_blue,
+                spaceAfter=10,
+                alignment=1,  # Center alignment
+                fontName='Helvetica-Bold'
+            )
+            story.append(Paragraph("Maids of Cy-Fair", company_name_style))
+        else:
+            # If no logo, use the original large company style
+            story.append(Paragraph("Maids of Cy-Fair", company_style))
+        
+        story.append(Spacer(1, 10))
+        
+        # Invoice Title and Metadata
+        invoice_number = invoice.get('invoice_number', 'N/A')
+        invoice_date = invoice.get('issue_date', invoice.get('created_at', datetime.now()))
+        if isinstance(invoice_date, str):
+            invoice_date = datetime.fromisoformat(invoice_date.replace('Z', '+00:00'))
+        formatted_date = invoice_date.strftime('%B %d, %Y')
+        
+        story.append(Paragraph(f"Invoice no. #{invoice_number}", invoice_title_style))
+        story.append(Paragraph(f"Date: {formatted_date}", client_info_style))
         story.append(Spacer(1, 20))
         
-        # Invoice details
-        invoice_data = [
-            ['Invoice Number:', invoice.get('invoice_number', 'N/A')],
-            ['Date:', invoice.get('created_at', 'N/A')],
-            ['Status:', invoice.get('status', 'N/A').upper()],
-            ['Customer:', invoice.get('customer_name', 'N/A')],
-            ['Email:', invoice.get('customer_email', 'N/A')],
-            ['Phone:', invoice.get('customer_phone', 'N/A')]
+        # Client Information Section
+        story.append(Paragraph("Client Information", section_header_style))
+        
+        # Get customer details
+        customer = await db.users.find_one({"id": invoice.get('customer_id')})
+        customer_name = invoice.get('customer_name', 'N/A')
+        customer_email = invoice.get('customer_email', 'N/A')
+        customer_phone = customer.get('phone', 'N/A') if customer else 'N/A'
+        customer_address = invoice.get('customer_address', {})
+        
+        # Format address
+        address_lines = []
+        if customer_address:
+            if customer_address.get('street'):
+                address_lines.append(customer_address['street'])
+            if customer_address.get('city') and customer_address.get('state'):
+                address_lines.append(f"{customer_address['city']}, {customer_address['state']}")
+            if customer_address.get('zip_code'):
+                address_lines.append(customer_address['zip_code'])
+        
+        client_info_data = [
+            ['Name:', customer_name],
+            ['Address:', '\n'.join(address_lines) if address_lines else 'N/A'],
+            ['Email:', customer_email],
+            ['Phone:', customer_phone]
         ]
         
-        invoice_table = Table(invoice_data, colWidths=[2*inch, 3*inch])
-        invoice_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        client_table = Table(client_info_data, colWidths=[1.5*inch, 4.5*inch])
+        client_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), light_blue),
+            ('TEXTCOLOR', (0, 0), (-1, -1), dark_gray),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('BACKGROUND', (1, 0), (1, -1), colors.beige),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('BACKGROUND', (1, 0), (1, -1), light_gray),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'
         ]))
         
-        story.append(invoice_table)
+        story.append(client_table)
         story.append(Spacer(1, 20))
         
-        # Service details
-        story.append(Paragraph("Service Details", header_style))
+        # Job Description Section
+        story.append(Paragraph("Job Description", section_header_style))
         
-        service_data = [['Description', 'Quantity', 'Rate', 'Amount']]
+        service_data = [['Job Description', 'Total']]
         
         # Add service items
         for item in invoice.get('items', []):
+            service_name = item.get('service_name', item.get('description', 'N/A'))
+            total_price = item.get('total_price', item.get('amount', 0))
             service_data.append([
-                item.get('description', 'N/A'),
-                str(item.get('quantity', 0)),
-                f"${item.get('rate', 0):.2f}",
-                f"${item.get('amount', 0):.2f}"
+                service_name,
+                f"${total_price:.2f}"
             ])
         
-        service_table = Table(service_data, colWidths=[3*inch, 1*inch, 1*inch, 1*inch])
+        service_table = Table(service_data, colWidths=[4.5*inch, 1.5*inch])
         service_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('BACKGROUND', (0, 0), (-1, 0), primary_blue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ('BACKGROUND', (0, 1), (-1, -1), light_gray),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 11),
+            ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
         ]))
         
         story.append(service_table)
         story.append(Spacer(1, 20))
         
-        # Totals
+        # Payment Information Section
+        story.append(Paragraph("Payment Information", section_header_style))
+        
+        payment_info_text = "We accept all major debit / credit cards"
+        story.append(Paragraph(payment_info_text, client_info_style))
+        story.append(Spacer(1, 10))
+        
+        # Total Amount Due - Prominent Display
+        total_amount = invoice.get('total_amount', 0)
+        total_style = ParagraphStyle(
+            'TotalAmount',
+            parent=styles['Heading1'],
+            fontSize=18,
+            textColor=primary_blue,
+            spaceAfter=20,
+            alignment=1,  # Center alignment
+            fontName='Helvetica-Bold'
+        )
+        
+        story.append(Paragraph(f"Total Amount Due: ${total_amount:.2f}", total_style))
+        story.append(Spacer(1, 20))
+        
+        # Detailed Totals (if needed for transparency)
         totals_data = [
             ['Subtotal:', f"${invoice.get('subtotal', 0):.2f}"],
-            ['Tax:', f"${invoice.get('tax_amount', 0):.2f}"],
-            ['Total:', f"${invoice.get('total_amount', 0):.2f}"]
+            ['Tax (8.25%):', f"${invoice.get('tax_amount', 0):.2f}"],
+            ['Total:', f"${total_amount:.2f}"]
         ]
         
         totals_table = Table(totals_data, colWidths=[4*inch, 2*inch])
         totals_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('LINEBELOW', (0, -1), (-1, -1), 2, colors.black),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('LINEBELOW', (0, -1), (-1, -1), 2, primary_blue),
+            ('TEXTCOLOR', (0, 0), (-1, -1), dark_gray),
         ]))
         
         story.append(totals_table)
         story.append(Spacer(1, 30))
         
-        # Footer
-        story.append(Paragraph("Thank you for your business!", styles['Normal']))
-        story.append(Paragraph("Maids of Cy-Fair", styles['Normal']))
+        # Professional Footer
+        footer_style = ParagraphStyle(
+            'FooterStyle',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=primary_blue,
+            spaceAfter=8,
+            alignment=1,  # Center alignment
+            fontName='Helvetica-Bold'
+        )
+        
+        company_address_style = ParagraphStyle(
+            'CompanyAddress',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=dark_gray,
+            spaceAfter=4,
+            alignment=1,  # Center alignment
+            fontName='Helvetica'
+        )
+        
+        story.append(Paragraph("Thank you for your business!", footer_style))
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("Maids of Cy-Fair", footer_style))
+        story.append(Paragraph("Professional Cleaning Services", company_address_style))
+        story.append(Paragraph("Serving the Cy-Fair Area", company_address_style))
+        story.append(Paragraph("Phone: (281) 555-0123 | Email: info@maidsofcyfair.com", company_address_style))
         
         # Build PDF
         doc.build(story)
